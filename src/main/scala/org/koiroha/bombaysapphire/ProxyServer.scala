@@ -12,6 +12,7 @@ import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
+import scala.util.parsing.json.JSON
 
 object ProxyServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
@@ -72,10 +73,11 @@ object ProxyServer extends App {
     buffer.get(binary)
     val content = new String(binary)
     logger.debug(s"--- $name ---")
-    if(content.length > 1000){
-      logger.debug(content.substring(0, 1000) + "...")
-    } else {
-      logger.debug(content)
+    JSON.parseFull(content) match {
+	    case Some(value:Map[String,_]) =>
+		    logger.debug(s"result: ${value.getOrElse("result", "")}")
+	    case None =>
+		    logger.debug(s"parse error: ${content.substring(0, 1000)}...")
     }
     // result.map.….gameEntities[][2]
   }
