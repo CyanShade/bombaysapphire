@@ -1,8 +1,10 @@
+create schema intel;
+
 create table intel.logs(
-  id serial not null,
+  id serial not null primary key,
   method varchar not null,
   log jsonb not null,
-  created_at timestamp with time zone
+  created_at timestamp with time zone not null
 ) with(oids=false);
 
 
