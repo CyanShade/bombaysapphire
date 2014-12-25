@@ -6,7 +6,6 @@ import com.twitter.finagle.Service
 import com.twitter.finagle.builder.{ClientBuilder, ServerBuilder}
 import com.twitter.finagle.http.RequestBuilder
 import com.twitter.util.Future
-import org.apache.log4j.BasicConfigurator
 import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse}
 import org.slf4j.LoggerFactory
@@ -16,7 +15,7 @@ import scala.util.parsing.json.JSON
 
 object ProxyServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
-  BasicConfigurator.configure()
+  //BasicConfigurator.configure()
 
   def dec(s:String):String = s.map{ _ + 3 }.map{ _.toChar }.mkString
 
@@ -68,11 +67,16 @@ object ProxyServer extends App {
   }
 
   def hook(name:String, c:ChannelBuffer):Unit = {
+    import scala.slick.driver.PostgresDriver.simple._
     val buffer = c.toByteBuffer
     val binary = new Array[Byte](buffer.limit())
     buffer.get(binary)
     val content = new String(binary)
     logger.debug(s"--- $name ---")
+    Database.forURL("jdbc:postgresql://localhost/bombaysapphire", user="postgres", password="postgres", driver="org.postgresql.Driver") withSession {
+      implicit session =>
+        session.conn.prepareStatement("insert into logs")
+    }
     JSON.parseFull(content) match {
 	    case Some(_value:Map[_,_]) =>
         // デバッグや分析に不要な大量のゴミ情報を除去
@@ -82,14 +86,14 @@ object ProxyServer extends App {
           case "getRegionScoreDetails" => RegionScoreDetails(value)
           case "getPlexts" => Plext(value)
           case "getEntities" => Entities(value)
+          case "getPortalDetails" => PortalDetails(value)
           case _ => value.asInstanceOf[Map[String,Any]].get("result")
         }) match {
           case Some(obj) =>
             val str = obj.toString
-            logger.debug(s"${if(str.length>1000) str.substring(0,1000) else str}")
+            logger.debug(s"${if(str.length>5000) str.substring(0,5000) else str}")
           case None =>
-            import Implicit._
-            logger.warn(value.toJSON)
+            logger.warn(content)
         }
 	    case None =>
 		    logger.debug(s"parse error: ${content.substring(0, 1000)}...")

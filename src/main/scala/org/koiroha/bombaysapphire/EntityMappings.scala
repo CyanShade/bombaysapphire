@@ -7,6 +7,7 @@ package org.koiroha.bombaysapphire
 
 import org.koiroha.bombaysapphire.Entities._
 import org.koiroha.bombaysapphire.Implicit._
+import org.koiroha.bombaysapphire.PortalDetails.{Resonator, Mod}
 import org.koiroha.bombaysapphire.RegionScoreDetails._
 import org.slf4j.LoggerFactory
 
@@ -218,6 +219,59 @@ object Plext {
 		}
 	}
 }
+
+	/*
+--- getPortalDetails ---
+{"latE6":3.5697816E7,"health":99.0,"resonators":[{"owner":"materia64","energy":6000.0,"level":8.0},{"owner":"takayuki8695","energy":5993.0,"level":8.0},{"owner":"Ziraiya","energy":5996.0,"level":8.0},{"owner":"banban21","energy":6000.0,"level":8.0},{"owner":"kosuke01","energy":5991.0,"level":8.0},{"owner":"xanadu2000","energy":5986.0,"level":8.0},{"owner":"st39pq28","energy":5951.0,"level":8.0},{"owner":"colsosun","energy":5984.0,"level":8.0}],"image":"http://lh5.ggpht.com/s_rUFvp3UQoEHzPOLHgvkBZqU0ANBOTCwhbYhZHuxdy4xwoENZoFCGN2Cd8WRHMFcARF_K95hs2gUhZnkeg","mods":[{"owner":"xanadu2000","stats":{"REMOVAL_STICKINESS":"70","MITIGATION":"70"},"name":"AXA Shield","rarity":"VERY_RARE"},{"owner":"Ziraiya","stats":{"REMOVAL_STICKINESS":"20","MITIGATION":"30"},"name":"Portal Shield","rarity":"COMMON"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"}],"resCount":8.0,"lngE6":1.39812408E8,"team":"RESISTANCE","owner":"Ziraiya","title":"美容ポコ","type":"portal","ornaments":[],"level":8.0}
+*/
+case class PortalDetails(health:Int, image:String, latE6:Double, level:Int, lngE6:Double, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String)
+object PortalDetails {
+	/**
+	 * {
+      "name": "AXA Shield",
+      "owner": "xanadu2000",
+      "rarity": "VERY_RARE",
+      "stats": {
+        "MITIGATION": "70",
+        "REMOVAL_STICKINESS": "70"
+	     }
+	 }
+	 */
+	case class Mod(name:String, owner:String, rarity:String, stats:Map[String,String])
+	case class Resonator(energy:Int, level:Int, owner:String)
+	def apply(value:Any):Option[PortalDetails] = Select(
+		'health -> Path("health").getInt(value),
+		'image -> Path("image").getString(value),
+		'latE6 -> Path("latE6").getDouble(value),
+		'level -> Path("level").getInt(value),
+		'lngE6 -> Path("lngE6").getDouble(value),
+		'mods -> Path("mods").getList(value).map { mods =>
+			mods.map { e =>
+				if(e == null) None else Select(
+					'name -> Path("name").getString(e),
+					'owner -> Path("owner").getString(e),
+					'rarity -> Path("rarity").getString(e),
+					'stats -> Path("stats").getMap(e).map{ _.map{ case (k,v) => k.toString -> v.toString }}
+				).build { Mod.apply }
+			}
+		},
+		'ornaments -> Path("ornaments").getList(value).map{ _.map{ _.toString }},
+		'owner -> Path("owner").getString(value),
+		'resCount -> Path("resCount").getInt(value),
+		'resonators -> SelectList(Path("resonators").getList(value)).build{ r =>
+			Select(
+				'energy -> Path("energy").getInt(r),
+				'level -> Path("level").getInt(r),
+				'owner -> Path("owner").getString(r)
+			).build{ Resonator.apply }
+		},
+		'team -> Path("team").getString(value).flatMap{ Team.apply },
+		'title -> Path("title").getString(value),
+		'type -> Path("type").getString(value)
+	).build{ PortalDetails.apply }
+}
+
+
 object Implicit {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Entities])
 	implicit class _Any(value:Any){
@@ -226,7 +280,7 @@ object Implicit {
 				case s:String => "\"" + s + "\""
 				case l:List[_] => s"[${l.map{ _jsonize }.mkString(",")}]"
 				case m:Map[_,_] => s"{${m.map{k=>s"${_jsonize(k._1)}:${_jsonize(k._2)}"}.mkString(",")}}"
-				case i => i.toString
+				case i => if(i==null) "null" else i.toString
 			}
 			_jsonize(value)
 		}
@@ -258,6 +312,8 @@ object Implicit {
 		def apply[P1,P2,P3,P4,P5,P6,P7](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7])) = Select7(s1,s2,s3,s4,s5,s6,s7)
 		def apply[P1,P2,P3,P4,P5,P6,P7,P8](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8])) = Select8(s1,s2,s3,s4,s5,s6,s7,s8)
 		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9])) = Select9(s1,s2,s3,s4,s5,s6,s7,s8,s9)
+		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9]),s10:(Symbol,Option[P10])) = Select10(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10)
+		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9]),s10:(Symbol,Option[P10]),s11:(Symbol,Option[P11]),s12:(Symbol,Option[P12]),s13:(Symbol,Option[P13])) = Select13(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13)
 	}
 	object SelectList {
 		def apply(l:Option[List[Any]]) = new Select(){
@@ -298,6 +354,12 @@ object Implicit {
 	}
 	case class Select9[P1,P2,P3,P4,P5,P6,P7,P8,P9](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9])) extends Select {
 		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get) }
+	}
+	case class Select10[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9]),p10:(Symbol,Option[P10])) extends Select {
+		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9,P10)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get, p10._2.get) }
+	}
+	case class Select13[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9]),p10:(Symbol,Option[P10]),p11:(Symbol,Option[P11]),p12:(Symbol,Option[P12]),p13:(Symbol,Option[P13])) extends Select {
+		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get, p10._2.get, p11._2.get, p12._2.get, p13._2.get) }
 	}
 }
 
