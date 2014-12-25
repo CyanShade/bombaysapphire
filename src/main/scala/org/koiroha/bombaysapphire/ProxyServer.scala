@@ -12,6 +12,7 @@ import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
+import scala.util.parsing.json.JSON
 
 object ProxyServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
@@ -19,8 +20,8 @@ object ProxyServer extends App {
 
   def dec(s:String):String = s.map{ _ + 3 }.map{ _.toChar }.mkString
 
-  val RemoteHost = dec("ttt+fkdobpp+`lj")
-  val RemoteAddress = dec("4/+.1+/16+.5-")
+  def RemoteHost = dec("ttt+fkdobpp+`lj")
+  def RemoteAddress = dec("4/+.1+/16+.5-")
   val Client = ClientBuilder()
     .codec(com.twitter.finagle.http.Http())
     .hosts(s"$RemoteAddress:443")
@@ -72,10 +73,26 @@ object ProxyServer extends App {
     buffer.get(binary)
     val content = new String(binary)
     logger.debug(s"--- $name ---")
-    if(content.length > 1000){
-      logger.debug(content.substring(0, 1000) + "...")
-    } else {
-      logger.debug(content)
+    JSON.parseFull(content) match {
+	    case Some(_value:Map[_,_]) =>
+        // デバッグや分析に不要な大量のゴミ情報を除去
+        val value = _value.filter{ case (k,_) => k != "b" && k != "c" }
+        (name match {
+          case "getGameScore" => GameScore(value)
+          case "getRegionScoreDetails" => RegionScoreDetails(value)
+          case "getPlexts" => Plext(value)
+          case "getEntities" => Entities(value)
+          case _ => value.asInstanceOf[Map[String,Any]].get("result")
+        }) match {
+          case Some(obj) =>
+            val str = obj.toString
+            logger.debug(s"${if(str.length>1000) str.substring(0,1000) else str}")
+          case None =>
+            import Implicit._
+            logger.warn(value.toJSON)
+        }
+	    case None =>
+		    logger.debug(s"parse error: ${content.substring(0, 1000)}...")
     }
     // result.map.….gameEntities[][2]
   }
