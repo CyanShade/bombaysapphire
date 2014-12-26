@@ -12,6 +12,8 @@ import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
+import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.StaticQuery.interpolation
 import scala.util.parsing.json.JSON
 
 object ProxyServer extends App {
@@ -29,6 +31,8 @@ object ProxyServer extends App {
     .hostConnectionLimit(5)
     .build()
   val UriPrefix = "/r/(.*)".r
+
+  val db = Database.forURL("jdbc:postgresql://localhost:5433/bombaysapphire", user="postgres", password="postgres", driver="org.postgresql.Driver")
 
   lazy val service = new Service[HttpRequest,HttpResponse] {
     def apply(request:HttpRequest):Future[HttpResponse] = {
@@ -68,14 +72,12 @@ object ProxyServer extends App {
   }
 
   def hook(name:String, c:ChannelBuffer):Unit = {
-    import scala.slick.driver.PostgresDriver.simple._
-    import scala.slick.jdbc.StaticQuery.interpolation
     val buffer = c.toByteBuffer
     val binary = new Array[Byte](buffer.limit())
     buffer.get(binary)
     val content = new String(binary)
     logger.debug(s"--- $name ---")
-    Database.forURL("jdbc:postgresql://localhost:5433/bombaysapphire", user="postgres", password="postgres", driver="org.postgresql.Driver") withSession {
+    db.withSession {
       implicit session =>
         sqlu"insert into intel.logs(method, log) values($name, $content::jsonb)".first.run
     }
