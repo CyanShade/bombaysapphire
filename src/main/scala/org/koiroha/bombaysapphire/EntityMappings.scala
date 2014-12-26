@@ -5,13 +5,13 @@
 */
 package org.koiroha.bombaysapphire
 
+import org.json4s._
+import org.json4s.native.JsonMethods._
 import org.koiroha.bombaysapphire.Entities._
 import org.koiroha.bombaysapphire.Implicit._
-import org.koiroha.bombaysapphire.PortalDetails.{Resonator, Mod}
+import org.koiroha.bombaysapphire.PortalDetails.{Mod, Resonator}
 import org.koiroha.bombaysapphire.RegionScoreDetails._
 import org.slf4j.LoggerFactory
-
-import scala.util.Try
 
 sealed abstract class Team
 object Team {
@@ -32,11 +32,8 @@ case object Neutral extends Team
 // getGameScore
 case class GameScore(enlightened:Int, resistance:Int)
 object GameScore {
-	private[this] val logger = LoggerFactory.getLogger(classOf[GameScore])
-	def apply(value:Any):Option[GameScore] = Select(
-			'enlightened -> Path("result", 0).getInt(value),
-			'resistance  -> Path("result", 1).getInt(value)
-		).build{ GameScore.apply }
+	private[this] implicit val formats = DefaultFormats
+	def apply(value:JValue):Option[GameScore] = value transformOpt Some(GameScore(value(0).toInt, value(1).toInt))
 }
 
 /**
@@ -57,52 +54,41 @@ case class RegionScoreDetails(
 	topAgents:List[TopAgent],
 	timeToEndOfBaseCycleMs:Double,
 	regionName:String,
-	regionVertices:List[RegionVertex]
-) {
-}
+	regionVertices:List[GameScore]
+)
 object RegionScoreDetails {
 	private[this] val logger = LoggerFactory.getLogger(classOf[RegionScoreDetails])
+	private[this] implicit val formats = DefaultFormats
 	case class ScoreHistory(checkpoint:Int, enlightened:Int, resistance:Int)
-	case class TopAgent(nick:String, team:Team)
-	case class RegionVertex(enlightened:Int, resistance:Int)
-
-	def apply(value:Any):Option[RegionScoreDetails] = Select(
-		'gameScore -> Select(
-			'enrightened -> Path("result", "gameScore", 0).getInt(value),
-			'registance  -> Path("result", "gameScore", 1).getInt(value)
-		).build{ GameScore.apply },
-		'scoreHistory -> SelectList(Path("result", "scoreHistory").getList(value)).build { x =>
-			Select(
-				'checkpoint  -> Path(0).getInt(x),
-				'enlightened -> Path(1).getInt(x),
-				'resistance  -> Path(2).getInt(x)
-			).build { ScoreHistory.apply }
-		},
-		'topAgent -> SelectList(Path("result", "topAgents").getList(value)).build{ x =>
-			Select(
-				'nick -> Path("nick").getString(x),
-				'team -> Path("team").getString(x).flatMap{ Team.apply }
-			).build { TopAgent.apply }
-		},
-		'timeToEndOfBaseCycleMs -> Path("result", "timeToEndOfBaseCycleMs").getDouble(value),
-		'regionName -> Path("result", "regionName").getString(value),
-		'regionVertices -> SelectList(Path("result", "regionVertices").getList(value)).build { x =>
-			Select(
-				'enlightened -> Path(0).getInt(x),
-				'resistance  -> Path(1).getInt(x)
-			).build { RegionVertex.apply }
+	object ScoreHistory {
+		def apply(value:JValue):ScoreHistory = value transform {
+			ScoreHistory(value(0).toInt, value(1).toInt, value(2).toInt)
 		}
-	).build{ RegionScoreDetails.apply }
+	}
+	case class TopAgent(nick:String, team:Team)
+	object TopAgent {
+		def apply(value:JValue):TopAgent = value transform {
+			TopAgent((value \ "nick").extract[String], Team((value \ "team").extract[String]).get)
+		}
+	}
+
+	def apply(value:JValue):Option[RegionScoreDetails] = value transformOpt {
+		val gameScore = GameScore(value \ "result" \ "gameScore")
+		val scoreHistory = (value \ "result" \ "scoreHistory").toList.map{ x => ScoreHistory(x:JValue) }
+		val topAgents = (value \ "result" \ "topAgents").toList.map{ x => TopAgent(x:JValue) }
+		val timeToEndOfBaseCycleMs = (value \ "result" \ "timeToEndOfBaseCycleMs").extractOpt[Double]
+		val regionName = (value \ "result" \ "regionName").extractOpt[String]
+		val regionVertices = (value \ "result" \ "regionVertices").toList.flatMap{ x => GameScore(x:JValue) }
+		Some(RegionScoreDetails(gameScore.get, scoreHistory, topAgents, timeToEndOfBaseCycleMs.get, regionName.get, regionVertices))
+	}
 }
 
-case class Entities(map:Map[String,MapRegion]){
-
-}
+case class Entities(map:Map[String,MapRegion])
 object Entities {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Entities])
+	private[this] implicit val formats = DefaultFormats
 
-	case class MapRegion(deletedGameEntityGuids:Seq[String], gameEntities:Seq[GameEntity], error:Option[String]) {
-	}
+	case class MapRegion(deletedGameEntityGuids:Seq[String], gameEntities:Seq[GameEntity], error:Option[String])
 	object MapRegion {
 		def apply(deletedGameEntityGuids:Seq[String], gameEntities:Seq[GameEntity]):MapRegion = this(deletedGameEntityGuids, gameEntities, None)
 	}
@@ -125,98 +111,98 @@ object Entities {
   ], [ 1f7e766f58f34ff6a4530d49bffbfad1.16, 1.419047928042E12, Map(latE6 -> 3.568481E7, health -> 100.0, image -> http://lh5.ggpht.com/wz0sNaylEDKCjkISLNLEZDmebsP408Yu6SbBE2jp77XcEg5RJnyPS49IPQsKj0McLSjekSiDH6rsR-rE3YU, resCount -> 8.0, lngE6 -> 1.39821138E8, team -> ENLIGHTENED, title -> 小名木川クローバー橋, type -> portal, ornaments -> List(), level -> 7.0))
    */
 	abstract class GameEntity(guid:String, unknown:Double, `type`:String)
-	case class Portal(guid:String, unknown:Double, latE6:Double, health:Int, image:String, resCount:Int, lngE6:Double, team:Team, title:String, `type`:String, ornaments:Seq[String], level:Int) extends GameEntity(guid, unknown, `type`)
+	case class Portal(guid:String, unknown:Double, latE6:Int, health:Int, image:String, resCount:Int, lngE6:Int, team:Team, title:String, ornaments:Seq[String], level:Int) extends GameEntity(guid, unknown, "portal")
 	object Portal {
 		private[this] val logger = LoggerFactory.getLogger(classOf[Portal])
-		def apply(guid:String, unknown:Double, x:Any):Option[Portal] = Select(
-			'latE6 -> Path(2, "latE6").getDouble(x),
-			'health -> Path(2, "health").getInt(x),
-			'image -> Path(2, "image").getString(x),
-			'resCount -> Path(2, "resCount").getInt(x),
-			'lngE6 -> Path(2, "lngE6").getDouble(x),
-			'team -> Path(2, "team").getString(x).flatMap{ Team.apply },
-			'title -> Path(2, "title").getString(x),
-			'ornaments -> Path(2, "ornaments").getList(x).map{ _.map { _.toString }},
-			'level -> Path(2, "level").getInt(x)
-		).build{ Portal(guid, unknown, _:Double, _:Int, _:String, _:Int, _:Double, _:Team, _:String, "portal", _:Seq[String], _:Int) }
+		def apply(guid:String, unknown:Double, value:JValue):Portal = value transform {
+			val latE6 = (value(2) \ "latE6").toInt
+			val health = (value(2) \ "health").toInt
+			val image = (value(2) \ "image").extractOpt[String].get
+			val resCount = (value(2) \ "resCount").toInt
+			val lngE6 = (value(2) \ "lngE6").toInt
+			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
+			val title = (value(2) \ "title").extractOpt[String].get
+			val ornaments = (value(2) \ "ornaments").toList.map{ _.extractOpt[String].get }
+			val level = (value(2) \ "level").toInt
+			Portal(guid, unknown, latE6, health, image, resCount, lngE6, team, title, ornaments, level)
+		}
 	}
-	case class Region(guid:String, unknown:Double, points:Seq[Point], team:Team, `type`:String) extends GameEntity(guid, unknown, `type`)
+	case class Region(guid:String, unknown:Double, points:Seq[Point], team:Team) extends GameEntity(guid, unknown, "region")
 	object Region {
-		def apply(guid:String, unknown:Double, x:Any):Option[Region] = Select(
-			'point -> SelectList(Path(2, "points").getList(x)).build{ m =>
-				Select(
-					'guid  -> Path("guid").getString(m),
-					'latE6 -> Path("latE6").getDouble(m),
-					'lngE6 -> Path("lngE6").getDouble(m)
-				).build{ Point.apply }
-			},
-			'team -> Path(2, "team").getString(x).flatMap{ Team.apply }
-		).build{ Region(guid, unknown, _:Seq[Point], _:Team, "region") }
+		def apply(guid:String, unknown:Double, value:JValue):Region = value transform {
+			val points = (value(2) \ "points").toList.map{ x => Point(x:JValue) }
+			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
+			Region(guid, unknown, points, team)
+		}
 	}
-	case class Edge(guid:String, unknown:Double, dest:Point, org:Point, team:Team, `type`:String) extends GameEntity(guid, unknown, `type`)
+	case class Edge(guid:String, unknown:Double, dest:Point, org:Point, team:Team) extends GameEntity(guid, unknown, "edge")
 	object Edge {
-		def apply(guid:String, unknown:Double, x:Any):Option[Edge] = Select(
-			'dest -> Select(
-				'dGuid  -> Path(2, "dGuid").getString(x),
-				'dLatE6 -> Path(2, "dLatE6").getDouble(x),
-				'dLngE6 -> Path(2, "dLngE6").getDouble(x)
-			).build{ Point.apply },
-			'org -> Select(
-				'oGuid  -> Path(2, "oGuid").getString(x),
-				'oLatE6 -> Path(2, "oLatE6").getDouble(x),
-				'oLngE6 -> Path(2, "oLngE6").getDouble(x)
-			).build{ Point.apply },
-			'team -> Path(2, "team").getString(x).flatMap{ Team.apply }
-		).build{ Edge(guid, unknown, _:Point, _:Point, _:Team, "edge") }
+		def apply(guid:String, unknown:Double, value:JValue):Edge = value transform {
+			val dest = Point(value.transformField{
+				case ("dGuid",v) => ("guid",v)
+				case ("dLatE6",v) => ("latE6",v)
+				case ("dLngE6",v) => ("lngE6",v)
+			})
+			val org = Point(value.transformField{
+				case ("oGuid",v) => ("guid",v)
+				case ("oLatE6",v) => ("latE6",v)
+				case ("oLngE6",v) => ("lngE6",v)
+			})
+			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
+			Edge(guid, unknown, dest, org, team)
+		}
 	}
-	case class Point(guid:String, latE6:Double, lngE6:Double)
+	case class Point(guid:String, latE6:Int, lngE6:Int)
+	object Point {
+		def apply(value:JValue):Point = value transform {
+			val guid = (value \ "guid").extractOpt[String].get
+			val latE6 = (value \ "latE6").toInt
+			val lngE6 = (value \ "lngE6").toInt
+			Point(guid, latE6, lngE6)
+		}
+	}
 
-	def apply(value: Any):Option[Entities] = Path("result", "map").getMap(value).flatMap { m =>
-		val region = m.toSeq.map{ case (regionId, info) =>
-			val regionInfo = Path("error").getString(info) match {
-				case Some(err) => Some(MapRegion(Nil, Nil, Some(err)))
+	def apply(value:JValue):Option[Entities] = value transformOpt {
+		val region = (value \ "result" \ "map").toMap.map{ case (regionId, regionInfo) =>
+			(regionId, (regionInfo \ "error").extractOpt[String] match {
+				case Some(error) =>
+					MapRegion(Nil, Nil, Some(error))
 				case None =>
-					Select(
-						'deletedGameEntityGuids -> SelectList(Path("deletedGameEntityGuids").getList(info)).build{ x => Some(x.toString) },
-						'gameEntities -> SelectList(Path("gameEntities").getList(info)).build{ x =>
-							Select(
-								'guid -> Path(0).getString(x),
-								'unknown -> Path(1).getDouble(x),
-								'type -> Path(2, "type").getString(x)
-							).build{ (guid, unknown, `type`) =>
-								`type` match {
-									case "portal" => Portal(guid, unknown, x)
-									case "edge" => Edge(guid, unknown, x)
-									case "region" => Region(guid, unknown, x)
-									case uk =>
-										logger.warn(s"unknown game-entity type: $uk")
-										None
-								}
-							}
-						}.map{ _.flatten }
-					).build{ MapRegion.apply }
-			}
-			(regionId.toString, regionInfo)
-		}.filter{ _._2.isDefined }.map{ kv => (kv._1, kv._2.get) }.toMap
+					val deletedGameEntityGuids = (regionInfo \ "deletedGameEntityGuids").toList.flatMap{ _.extractOpt[String] }
+					val gameEntities = (regionInfo \ "gameEntities").toList.flatMap{ x =>
+						val guid = x(0).extractOpt[String].get
+						val unknown = x(1).extractOpt[Double].get
+						(x \ "type").extractOpt[String].get match {
+							case "portal" => Some(Portal(guid, unknown, x))
+							case "edge" => Some(Edge(guid, unknown, x))
+							case "region" => Some(Region(guid, unknown, x))
+							case uk =>
+								logger.warn(s"unknown game-entity type: $uk")
+								None
+						}
+					}
+					MapRegion(deletedGameEntityGuids, gameEntities)
+			})
+		}
 		if(region.size == 0) None else Some(Entities(region))
 	}
 }
 
-case class Plext(guid:String, unknown:Double, categories:Int, markup:List[Any], plextType:String, team:Team, text:String)
+case class Plext(guid:String, unknown:Double, categories:Int, markup:String, plextType:String, team:Team, text:String)
 object Plext {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Plext])
-	def apply(value:Any):Option[Seq[Plext]] = {
-		SelectList(Path("success").getList(value)).build{ x =>
-			Select(
-				'guid -> Path(0).getString(x),
-				'unknown -> Path(1).getDouble(x),
-				'categories -> Path(2, "plext", "categories").getInt(x),
-				'markup -> Path(2, "plext", "markup").getList(x),
-				'plextType -> Path(2, "plext", "plextType").getString(x),
-				'team -> Path(2, "plext", "team").getString(x).flatMap{ Team.apply },
-				'text -> Path(2, "plext", "text").getString(x)
-			).build{ Plext.apply }
-		}
+	private[this] implicit val formats = DefaultFormats
+	def apply(value:JValue):Option[Seq[Plext]] = value transformOpt {
+		Some((value \ "success").toList.map { x =>
+			val guid = x(0).extractOpt[String].get
+			val unknown = x(1).extractOpt[Double].get
+			val categories = (x(2) \ "plext" \ "categories").toInt
+			val markup = compact(render(x(2) \ "plext" \ "markup"))
+			val plextType = (x(2) \ "plext" \ "plextType").extractOpt[String].get
+			val team = (x(2) \ "plext" \ "team").extractOpt[String].flatMap{ Team.apply }.get
+			val text = (x(2) \ "plext" \ "text").extractOpt[String].get
+			Plext(guid, unknown, categories, markup, plextType, team, text)
+		})
 	}
 }
 
@@ -224,8 +210,9 @@ object Plext {
 --- getPortalDetails ---
 {"latE6":3.5697816E7,"health":99.0,"resonators":[{"owner":"materia64","energy":6000.0,"level":8.0},{"owner":"takayuki8695","energy":5993.0,"level":8.0},{"owner":"Ziraiya","energy":5996.0,"level":8.0},{"owner":"banban21","energy":6000.0,"level":8.0},{"owner":"kosuke01","energy":5991.0,"level":8.0},{"owner":"xanadu2000","energy":5986.0,"level":8.0},{"owner":"st39pq28","energy":5951.0,"level":8.0},{"owner":"colsosun","energy":5984.0,"level":8.0}],"image":"http://lh5.ggpht.com/s_rUFvp3UQoEHzPOLHgvkBZqU0ANBOTCwhbYhZHuxdy4xwoENZoFCGN2Cd8WRHMFcARF_K95hs2gUhZnkeg","mods":[{"owner":"xanadu2000","stats":{"REMOVAL_STICKINESS":"70","MITIGATION":"70"},"name":"AXA Shield","rarity":"VERY_RARE"},{"owner":"Ziraiya","stats":{"REMOVAL_STICKINESS":"20","MITIGATION":"30"},"name":"Portal Shield","rarity":"COMMON"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"}],"resCount":8.0,"lngE6":1.39812408E8,"team":"RESISTANCE","owner":"Ziraiya","title":"美容ポコ","type":"portal","ornaments":[],"level":8.0}
 */
-case class PortalDetails(health:Int, image:String, latE6:Double, level:Int, lngE6:Double, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String)
+case class PortalDetails(health:Int, image:String, latE6:Int, level:Int, lngE6:Int, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String)
 object PortalDetails {
+	private[this] implicit val formats = DefaultFormats
 	/**
 	 * {
       "name": "AXA Shield",
@@ -239,167 +226,73 @@ object PortalDetails {
 	 */
 	case class Mod(name:String, owner:String, rarity:String, stats:Map[String,String])
 	case class Resonator(energy:Int, level:Int, owner:String)
-	def apply(value:Any):Option[PortalDetails] = Select(
-		'health -> Path("health").getInt(value),
-		'image -> Path("image").getString(value),
-		'latE6 -> Path("latE6").getDouble(value),
-		'level -> Path("level").getInt(value),
-		'lngE6 -> Path("lngE6").getDouble(value),
-		'mods -> Path("mods").getList(value).map { mods =>
-			mods.map { e =>
-				if(e == null) None else Select(
-					'name -> Path("name").getString(e),
-					'owner -> Path("owner").getString(e),
-					'rarity -> Path("rarity").getString(e),
-					'stats -> Path("stats").getMap(e).map{ _.map{ case (k,v) => k.toString -> v.toString }}
-				).build { Mod.apply }
+	def apply(value:JValue):Option[PortalDetails] = value transformOpt {
+		val health = (value \ "health").toInt
+		val image = (value \ "image").extractOpt[String].get
+		val latE6 = (value \ "latE6").toInt
+		val level = (value \ "level").toInt
+		val lngE6 = (value \ "lngE6").toInt
+		val mods = (value \ "mods").toList.map{ e =>
+			if(e == JNull) None else e.transformOpt {
+				val name = (e \ "name").extractOpt[String].get
+				val owner = (e \ "owner").extractOpt[String].get
+				val rarity = (e \ "rarity").extractOpt[String].get
+				val stats = (e \ "stats").toMap.map{ case (k,v) => k -> v.toString }.toMap
+				Some(Mod(name, owner, rarity, stats))
 			}
-		},
-		'ornaments -> Path("ornaments").getList(value).map{ _.map{ _.toString }},
-		'owner -> Path("owner").getString(value),
-		'resCount -> Path("resCount").getInt(value),
-		'resonators -> SelectList(Path("resonators").getList(value)).build{ r =>
-			Select(
-				'energy -> Path("energy").getInt(r),
-				'level -> Path("level").getInt(r),
-				'owner -> Path("owner").getString(r)
-			).build{ Resonator.apply }
-		},
-		'team -> Path("team").getString(value).flatMap{ Team.apply },
-		'title -> Path("title").getString(value),
-		'type -> Path("type").getString(value)
-	).build{ PortalDetails.apply }
+		}
+		val ornaments = (value \ "ornaments").toList.flatMap{ _.extractOpt[String] }
+		val owner = (value \ "owner").extractOpt[String].get
+		val resCount = (value \ "resCount").toInt
+		val resonators = (value \ "resonators").toList.map{ r =>
+			val energy = (r \ "energy").toInt
+			val level = (r \ "level").toInt
+			val owner = (r \ "owner").extractOpt[String].get
+			Resonator(energy, level, owner)
+		}
+		val team = (value \ "team").extractOpt[String].flatMap{ Team.apply }.get
+		val title = (value \ "title").extractOpt[String].get
+		val `type` = (value \ "type").extractOpt[String].get
+		Some(PortalDetails(health, image, latE6, level, lngE6, mods, ornaments, owner, resCount, resonators, team, title, `type`))
+	}
 }
 
 
 object Implicit {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Entities])
-	implicit class _Any(value:Any){
-		def toJSON:String = {
-			def _jsonize(v:Any):String = v match {
-				case s:String => "\"" + s + "\""
-				case l:List[_] => s"[${l.map{ _jsonize }.mkString(",")}]"
-				case m:Map[_,_] => s"{${m.map{k=>s"${_jsonize(k._1)}:${_jsonize(k._2)}"}.mkString(",")}}"
-				case i => if(i==null) "null" else i.toString
-			}
-			_jsonize(value)
-		}
-	}
-	implicit class _Map(values:Traversable[(Symbol,Option[Any])]) {
-		def make[T](exec:PartialFunction[List[Any],T]):Option[T] = {
-			values.filter{ _._2.isEmpty }.toList match {
-				case Nil =>
-					try {
-						Some(exec(values.map{ _._2.get }.toList))
-					} catch {
-						case ex:MatchError =>
-							logger.warn(s"parameter not match", ex)
-							None
-					}
-				case errs:List[(Symbol,Option[Any])] =>
-					logger.warn(s"${errs.map{ case (k,v) => s"$k:$v" }.mkString(", ")}; not specified")
-					None
-			}
-		}
-	}
-	object Select {
-		def apply[P1](s1:(Symbol,Option[P1])) = Select1(s1)
-		def apply[P1,P2](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2])) = Select2(s1,s2)
-		def apply[P1,P2,P3](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3])) = Select3(s1,s2,s3)
-		def apply[P1,P2,P3,P4](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4])) = Select4(s1,s2,s3,s4)
-		def apply[P1,P2,P3,P4,P5](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5])) = Select5(s1,s2,s3,s4,s5)
-		def apply[P1,P2,P3,P4,P5,P6](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6])) = Select6(s1,s2,s3,s4,s5,s6)
-		def apply[P1,P2,P3,P4,P5,P6,P7](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7])) = Select7(s1,s2,s3,s4,s5,s6,s7)
-		def apply[P1,P2,P3,P4,P5,P6,P7,P8](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8])) = Select8(s1,s2,s3,s4,s5,s6,s7,s8)
-		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9])) = Select9(s1,s2,s3,s4,s5,s6,s7,s8,s9)
-		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9]),s10:(Symbol,Option[P10])) = Select10(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10)
-		def apply[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13](s1:(Symbol,Option[P1]),s2:(Symbol,Option[P2]),s3:(Symbol,Option[P3]),s4:(Symbol,Option[P4]),s5:(Symbol,Option[P5]),s6:(Symbol,Option[P6]),s7:(Symbol,Option[P7]),s8:(Symbol,Option[P8]),s9:(Symbol,Option[P9]),s10:(Symbol,Option[P10]),s11:(Symbol,Option[P11]),s12:(Symbol,Option[P12]),s13:(Symbol,Option[P13])) = Select13(s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13)
-	}
-	object SelectList {
-		def apply(l:Option[List[Any]]) = new Select(){
-			def build[R](b:(Any)=>Option[R]):Option[List[R]] = l.map{ _.flatMap{ p => b(p) }.toList }
-		}
-	}
-	sealed abstract class Select {
-		def ifDefined[T](o:(Symbol,Option[_])*)(e: =>T):Option[T] = o.filter{ _._2.isEmpty }.map{ _._1 }.toList match {
-			case Nil => Some(e)
-			case err:List[Symbol] =>
-				logger.warn(s"not exist: ${err.mkString(", ")}")
+	private[this] class Checked() extends Exception
+	implicit class _JValue(value:JValue) {
+		def transformOpt[T](f: =>Option[T]):Option[T] = try {
+			f
+		} catch {
+			case _:Checked => None
+			case ex:Exception =>
+				logger.warn(s"parse error: ${pretty(render(value))}", ex)
 				None
 		}
-	}
-	case class Select1[P1](p1:(Symbol,Option[P1])) extends Select {
-		def build[T](b:(P1)=>T):Option[T] = ifDefined(p1){ b(p1._2.get) }
-	}
-	case class Select2[P1,P2](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2])) extends Select {
-		def build[T](b:(P1,P2)=>T):Option[T] = ifDefined(p1,p2){ b(p1._2.get, p2._2.get) }
-	}
-	case class Select3[P1,P2,P3](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3])) extends Select {
-		def build[T](b:(P1,P2,P3)=>T):Option[T] = ifDefined(p1,p2,p3){ b(p1._2.get, p2._2.get, p3._2.get) }
-	}
-	case class Select4[P1,P2,P3,P4](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4])) extends Select {
-		def build[T](b:(P1,P2,P3,P4)=>T):Option[T] = ifDefined(p1,p2,p3,p4){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get) }
-	}
-	case class Select5[P1,P2,P3,P4,P5](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get) }
-	}
-	case class Select6[P1,P2,P3,P4,P5,P6](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get) }
-	}
-	case class Select7[P1,P2,P3,P4,P5,P6,P7](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6,P7)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get) }
-	}
-	case class Select8[P1,P2,P3,P4,P5,P6,P7,P8](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get) }
-	}
-	case class Select9[P1,P2,P3,P4,P5,P6,P7,P8,P9](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get) }
-	}
-	case class Select10[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9]),p10:(Symbol,Option[P10])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9,P10)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get, p10._2.get) }
-	}
-	case class Select13[P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13](p1:(Symbol,Option[P1]),p2:(Symbol,Option[P2]),p3:(Symbol,Option[P3]),p4:(Symbol,Option[P4]),p5:(Symbol,Option[P5]),p6:(Symbol,Option[P6]),p7:(Symbol,Option[P7]),p8:(Symbol,Option[P8]),p9:(Symbol,Option[P9]),p10:(Symbol,Option[P10]),p11:(Symbol,Option[P11]),p12:(Symbol,Option[P12]),p13:(Symbol,Option[P13])) extends Select {
-		def build[T](b:(P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13)=>T):Option[T] = ifDefined(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10){ b(p1._2.get, p2._2.get, p3._2.get, p4._2.get, p5._2.get, p6._2.get, p7._2.get, p8._2.get, p9._2.get, p10._2.get, p11._2.get, p12._2.get, p13._2.get) }
-	}
-}
-
-case class Path(selector:Any*){
-	private[this] lazy val logger = LoggerFactory.getLogger(classOf[Path])
-	def getList(value:Any):Option[List[Any]] = select(value, 0) match {
-		case Some(l:List[_]) => Some(l)
-		case _ => None
-	}
-	def getMap(value:Any):Option[Map[_,Any]] = select(value, 0) match {
-		case Some(l:Map[_,_]) => Some(l)
-		case _ => None
-	}
-	def getString(value:Any):Option[String] = select(value, 0).map{ _.toString }
-	def getDouble(value:Any):Option[Double] = select(value, 0) match {
-		case Some(value:String) => Try{ value.toDouble }.toOption
-		case Some(value:Double) => Some(value)
-		case Some(value:Int) => Some(value.toDouble)
-		case unknown =>
-			logger.warn(s"unknown double value: $unknown on ${selector.mkString("/")} in ${value.toJSON}")
-			None
-	}
-	def getInt(value:Any):Option[Int] = select(value, 0) match {
-		case Some(value:String) => Try{ value.toInt }.toOption
-		case Some(value:Double) => Some(value.toInt)
-		case Some(value:Int) => Some(value)
-		case unknown =>
-			logger.warn(s"unknown int value: $unknown on ${selector.mkString("/")} in ${value.toJSON}")
-			None
-	}
-	private[this] def select(value:Any, i:Int):Option[Any] = if(i == selector.size){
-		Some(value)
-	} else value match {
-		case array:List[_] =>
-			selector(i) match {
-				case j:Int if j<array.length => select(array(j), i+1)
-				case _ => None
-			}
-		case map:Map[_,_] =>
-			map.asInstanceOf[Map[Any,Any]].get(selector(i)).flatMap{ s =>select(s, i+1) }
-		case _ => None
+		def transform[T](f: =>T):T = try {
+			f
+		} catch {
+			case ex:Exception =>
+				if(! ex.isInstanceOf[Checked]){
+					logger.warn(s"parse error: ${pretty(render(value))}", ex)
+				}
+				throw new Checked
+		}
+		def toInt:Int = value match {
+			case i:JInt => i.num.toInt
+			case i:JDouble => i.num.toInt
+			case i:JDecimal => i.num.toInt
+			case i:JString => i.s.toInt
+			case unknown => throw new NumberFormatException(unknown.toString)
+		}
+		def toList:List[JValue] = value match {
+			case a:JArray => a.arr
+			case _ => Nil
+		}
+		def toMap:Map[String,JValue] = value match {
+			case o:JObject => o.obj.toMap
+			case _ => Map()
+		}
 	}
 }

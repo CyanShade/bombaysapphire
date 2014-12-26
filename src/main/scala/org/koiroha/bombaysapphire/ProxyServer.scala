@@ -2,6 +2,7 @@ package org.koiroha.bombaysapphire
 
 import java.net.InetSocketAddress
 
+import akka.actor.{Props, ActorSystem}
 import com.twitter.finagle.Service
 import com.twitter.finagle.builder.{ClientBuilder, ServerBuilder}
 import com.twitter.finagle.http.RequestBuilder
@@ -12,8 +13,6 @@ import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
-import scala.slick.driver.PostgresDriver.simple._
-import scala.slick.jdbc.StaticQuery.interpolation
 import scala.util.parsing.json.JSON
 
 object ProxyServer extends App {
@@ -32,7 +31,8 @@ object ProxyServer extends App {
     .build()
   val UriPrefix = "/r/(.*)".r
 
-  val db = Database.forURL("jdbc:postgresql://localhost:5433/bombaysapphire", user="postgres", password="postgres", driver="org.postgresql.Driver")
+  val system = ActorSystem("BombaySapphire")
+  val worker = system.actorOf(Props[ParserActor], name="parser")
 
   lazy val service = new Service[HttpRequest,HttpResponse] {
     def apply(request:HttpRequest):Future[HttpResponse] = {
@@ -63,7 +63,7 @@ object ProxyServer extends App {
           logger.trace(s"${e.getKey}: ${e.getValue}")
         }
         proxyRequest.getUri match {
-          case UriPrefix(name) => hook(name, r.getContent)
+          case UriPrefix(name) => save(name, r.getContent, proxyRequest, r)
           case _ => None
         }
         true
@@ -71,38 +71,16 @@ object ProxyServer extends App {
     }
   }
 
-  def hook(name:String, c:ChannelBuffer):Unit = {
+  def save(method:String, c:ChannelBuffer, request:HttpRequest, response:HttpResponse):Unit = {
     val buffer = c.toByteBuffer
     val binary = new Array[Byte](buffer.limit())
     buffer.get(binary)
     val content = new String(binary)
-    logger.debug(s"--- $name ---")
-    db.withSession {
-      implicit session =>
-        sqlu"insert into intel.logs(method, log) values($name, $content::jsonb)".first.run
-    }
-    JSON.parseFull(content) match {
-	    case Some(_value:Map[_,_]) =>
-        // デバッグや分析に不要な大量のゴミ情報を除去
-        val value = _value.filter{ case (k,_) => k != "b" && k != "c" }
-        (name match {
-          case "getGameScore" => GameScore(value)
-          case "getRegionScoreDetails" => RegionScoreDetails(value)
-          case "getPlexts" => Plext(value)
-          case "getEntities" => Entities(value)
-          case "getPortalDetails" => PortalDetails(value)
-          case _ => value.asInstanceOf[Map[String,Any]].get("result")
-        }) match {
-          case Some(obj) =>
-            val str = obj.toString
-            logger.debug(s"${if(str.length>5000) str.substring(0,5000) else str}")
-          case None =>
-            logger.warn(content)
-        }
-	    case None =>
-		    logger.debug(s"parse error: ${content.substring(0, 1000)}...")
-    }
-    // result.map.….gameEntities[][2]
+    val req = s"${request.getMethod.getName} ${request.getUri} ${request.getProtocolVersion.getText}\n" +
+      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n")
+    val res = s"${response.getProtocolVersion.getText} ${response.getStatus.getCode} ${response.getStatus.getReasonPhrase}\n" +
+      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n")
+    worker ! ParseTask(method, content, req, res, true)
   }
 
   logger.info(s"starting bombay-sapphire on port 80/443")
