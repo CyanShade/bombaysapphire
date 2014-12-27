@@ -1,28 +1,38 @@
 package org.koiroha.bombaysapphire
 
 import java.net.InetSocketAddress
+import java.sql.SQLException
 
-import akka.actor.{Props, ActorSystem}
+import akka.actor.ActorSystem
 import com.twitter.finagle.Service
 import com.twitter.finagle.builder.{ClientBuilder, ServerBuilder}
 import com.twitter.finagle.http.RequestBuilder
 import com.twitter.util.Future
+import com.typesafe.config.ConfigFactory
 import org.apache.log4j.BasicConfigurator
 import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
-import scala.util.parsing.json.JSON
+import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.StaticQuery.interpolation
 
-object ProxyServer extends App {
+/**
+ * ポート 80/443 上で Listen してサイトから返される JSON 情報を取得する HTTP プロキシ。
+ * 80/443 出動作させるためには root で実行する必要があるため利便性のためプロセスとして分離している。
+ */
+object ProxyServer extends App with DBAccess {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
   BasicConfigurator.configure()
 
+  /** 検索避けのためシーザー暗号で簡単な難読化 */
   def dec(s:String):String = s.map{ _ + 3 }.map{ _.toChar }.mkString
 
-  def RemoteHost = dec("ttt+fkdobpp+`lj")
-  def RemoteAddress = dec("4/+.1+/16+.5-")
+  def RemoteHost = dec("ttt+fkdobpp+`lj")   // ホスト名
+  def RemoteAddress = dec("4/+.1+/16+.5-")  // IP アドレス
+
+  /** 接続用の HTTP クライアント */
   val Client = ClientBuilder()
     .codec(com.twitter.finagle.http.Http())
     .hosts(s"$RemoteAddress:443")
@@ -31,16 +41,11 @@ object ProxyServer extends App {
     .build()
   val UriPrefix = "/r/(.*)".r
 
-  val system = ActorSystem("BombaySapphire")
-  val worker = system.actorOf(Props[ParserActor], name="parser")
+  val system = ActorSystem("bombaysapphire", ConfigFactory.load("proxy.conf"))
+  val worker = system.actorSelection("akka.tcp://bombaysapphire@localhost:2552/user/parser")
 
   lazy val service = new Service[HttpRequest,HttpResponse] {
     def apply(request:HttpRequest):Future[HttpResponse] = {
-      logger.trace("-------------------------")
-      logger.trace(s"${request.getMethod} ${request.getUri} ${request.getProtocolVersion.getText}")
-      request.headers().foreach{ e =>
-        logger.trace(s"${e.getKey}: ${e.getValue}")
-      }
       val proxyRequest = request.headers()
         .map{ e => e.getKey -> e.getValue }
         .groupBy{ _._1 }
@@ -51,36 +56,54 @@ object ProxyServer extends App {
         .url(s"https://$RemoteAddress${request.getUri}")
         .setHeader("Host", RemoteHost)
         .build(request.getMethod, if(request.getMethod == HttpMethod.GET) None else Option(request.getContent))
-      logger.trace("---")
-      logger.trace(s"${proxyRequest.getMethod.getName} ${proxyRequest.getUri} ${proxyRequest.getProtocolVersion.getText}")
-      proxyRequest.headers().foreach{ e =>
-        logger.trace(s"${e.getKey}: ${e.getValue}")
-      }
-      Client(proxyRequest).filter{ r =>
-        logger.trace("---")
-        logger.trace(s"${r.getProtocolVersion.getText} ${r.getStatus.getCode} ${r.getStatus.getReasonPhrase}")
-        r.headers().foreach{ e =>
-          logger.trace(s"${e.getKey}: ${e.getValue}")
-        }
-        proxyRequest.getUri match {
-          case UriPrefix(name) => save(name, r.getContent, proxyRequest, r)
-          case _ => None
-        }
-        true
+      proxyRequest.getUri match {
+        case UriPrefix(name) =>
+          logger.debug(s"${request.getMethod.getName} ${request.getUri}; ${request.getContent.asString}")
+          val start = System.currentTimeMillis()
+          Client(proxyRequest).filter{ r =>
+            val time = System.currentTimeMillis() - start
+            logger.debug(f"${r.getStatus.getCode}%s ${r.getStatus.getReasonPhrase}%s (${request.getUri}%s; $time%,d[ms])")
+            save(name, r.getContent, proxyRequest, r)
+            true
+          }
+        case _ => Client(proxyRequest)
       }
     }
   }
 
   def save(method:String, c:ChannelBuffer, request:HttpRequest, response:HttpResponse):Unit = {
-    val buffer = c.toByteBuffer
-    val binary = new Array[Byte](buffer.limit())
-    buffer.get(binary)
-    val content = new String(binary)
+    val tm = System.currentTimeMillis()
+    val content = c.asString
     val req = s"${request.getMethod.getName} ${request.getUri} ${request.getProtocolVersion.getText}\n" +
-      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n")
+      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n") +
+      "\n" + request.getContent.asString
     val res = s"${response.getProtocolVersion.getText} ${response.getStatus.getCode} ${response.getStatus.getReasonPhrase}\n" +
-      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n")
-    worker ! ParseTask(method, content, req, res, true)
+      response.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n") +
+      "\n" + content
+
+    // Akka 経由では大きなデータを受け渡しに支障が出るので共有ストレージ的な場所を経由して受け渡し
+    db.withSession { implicit session =>
+      val id = scala.util.Random.nextLong()
+      try {
+        sqlu"insert into intel.logs(id,method,content,request,response) values($id,$method,$content::jsonb,$req,$res)".first.run
+        Some(id)
+      } catch {
+        case ex: SQLException =>
+          logger.error(s"cannot insert json log: $content", ex)
+          None
+      }
+    }.foreach { id =>
+      worker ! ParseTask(method, id, tm)
+    }
+  }
+
+  private implicit class _ChannelBuffer(cb:ChannelBuffer){
+    def asString:String = {
+      val buffer = cb.toByteBuffer
+      val binary = new Array[Byte](buffer.limit())
+      buffer.get(binary)
+      new String(binary)
+    }
   }
 
   logger.info(s"starting bombay-sapphire on port 80/443")

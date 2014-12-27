@@ -5,15 +5,15 @@
 */
 package org.koiroha.bombaysapphire
 
-import org.json4s._
 import org.json4s.native.JsonMethods._
+import org.json4s._
 import org.koiroha.bombaysapphire.Entities._
 import org.koiroha.bombaysapphire.Implicit._
 import org.koiroha.bombaysapphire.PortalDetails.{Mod, Resonator}
 import org.koiroha.bombaysapphire.RegionScoreDetails._
 import org.slf4j.LoggerFactory
 
-sealed abstract class Team
+sealed abstract class Team(val symbol:Char)
 object Team {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Team])
 	def apply(name:String):Option[Team] = name.toLowerCase match {
@@ -25,9 +25,9 @@ object Team {
 			None
 	}
 }
-case object Resistance extends Team
-case object Enlightened extends Team
-case object Neutral extends Team
+case object Resistance extends Team('R')
+case object Enlightened extends Team('E')
+case object Neutral extends Team('N')
 
 // getGameScore
 case class GameScore(enlightened:Int, resistance:Int)
@@ -210,7 +210,20 @@ object Plext {
 --- getPortalDetails ---
 {"latE6":3.5697816E7,"health":99.0,"resonators":[{"owner":"materia64","energy":6000.0,"level":8.0},{"owner":"takayuki8695","energy":5993.0,"level":8.0},{"owner":"Ziraiya","energy":5996.0,"level":8.0},{"owner":"banban21","energy":6000.0,"level":8.0},{"owner":"kosuke01","energy":5991.0,"level":8.0},{"owner":"xanadu2000","energy":5986.0,"level":8.0},{"owner":"st39pq28","energy":5951.0,"level":8.0},{"owner":"colsosun","energy":5984.0,"level":8.0}],"image":"http://lh5.ggpht.com/s_rUFvp3UQoEHzPOLHgvkBZqU0ANBOTCwhbYhZHuxdy4xwoENZoFCGN2Cd8WRHMFcARF_K95hs2gUhZnkeg","mods":[{"owner":"xanadu2000","stats":{"REMOVAL_STICKINESS":"70","MITIGATION":"70"},"name":"AXA Shield","rarity":"VERY_RARE"},{"owner":"Ziraiya","stats":{"REMOVAL_STICKINESS":"20","MITIGATION":"30"},"name":"Portal Shield","rarity":"COMMON"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"}],"resCount":8.0,"lngE6":1.39812408E8,"team":"RESISTANCE","owner":"Ziraiya","title":"美容ポコ","type":"portal","ornaments":[],"level":8.0}
 */
-case class PortalDetails(health:Int, image:String, latE6:Int, level:Int, lngE6:Int, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String)
+case class PortalDetails(health:Int, image:String, latE6:Int, level:Int, lngE6:Int, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String){
+		import org.json4s.JsonDSL._
+		def resonatorsJSON:String = {
+			compact(render(resonators.map{ r => ("energy" -> r.energy) ~ ("level" -> r.level) ~ ("owner", r.owner) }.toList))
+		}
+		def modsJSON:String = {
+			compact(render(mods.map{
+				case Some(m) => ("name"->m.name) ~
+					("owner"->m.owner) ~ ("rarity"->m.rarity) ~
+					("stats"->JObject.apply(m.stats.map{ kv => kv._1 -> JString(kv._2) }.toList))
+				case None => JNull
+			}.toList))
+		}
+	}
 object PortalDetails {
 	private[this] implicit val formats = DefaultFormats
 	/**
