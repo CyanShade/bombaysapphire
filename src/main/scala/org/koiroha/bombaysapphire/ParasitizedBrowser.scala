@@ -110,7 +110,7 @@ object ParasitizedBrowser {
     val account = conf("account")
     val password = conf("password")
 
-    def next():Unit = if (engine.getLocation == s"https://${ProxyServer.RemoteHost}/intel") {
+    def next():Unit = if(engine.getLocation == s"https://${ProxyServer.RemoteHost}/intel") {
       if (step == 0) {
         // Step1: <a>Sign In</a> をクリックする
         engine.getDocument.getElementsByTagName("a").toList.find { n => n.getTextContent == "Sign in"} match {
@@ -127,18 +127,20 @@ object ParasitizedBrowser {
         // 各地点を表示する
         loop(5000)
       }
-    } else if(engine.getLocation.matches("https://accounts\\.google\\.com/ServiceLogin\\?.*")){
+    } else if(engine.getLocation.matches("https://accounts\\.google\\.com/ServiceLogin\\?.*")) {
       // サインインを自動化
       engine.executeScript(
-				s"""document.getElementById('Email').value='$account';
+        s"""document.getElementById('Email').value='$account';
 					|document.getElementById('Passwd').value='$password';
 					|document.getElementById('signIn').click();
 				""".stripMargin)
-      logger.info(s"[Step${step+1}}] Sign-in: ${engine.getLocation}")
+      logger.info(s"[Step${step + 1}}] Sign-in: ${engine.getLocation}")
       step += 1
+    } else if(engine.getLocation.startsWith(s"https://${ProxyServer.RemoteHost}/intel?")){
+      None
     } else {
       logger.info(s"[Step${step+1}] Unexpected Location: ${engine.getLocation}")
-      // primaryStage.close()
+      primaryStage.close()
     }
 
     /** 表示範囲 */
@@ -158,6 +160,7 @@ object ParasitizedBrowser {
     val waitInterval = conf("interval").toLong
 
     // ============================================================================================
+    // 表示位置移動ループ
     // ============================================================================================
     /**
      * 指定時間後に指定された場所を表示。位置が south/east を超えたらウィンドウを閉じる。
@@ -172,16 +175,8 @@ object ParasitizedBrowser {
         }
         logger.debug(f"[Step${step+1}] stepping next location: ($lat%.6f/$lng%.6f); $location")
         step += 1
-        // 指定位置を表示するスクリプトを実行
-        engine.executeScript(s"""{
-             |  document.getElementById('address').value='$lat,$lng';
-             |  var _gcl=document.getElementById('geocode').children;
-             |  for(var i=0;i<_gcl.length;i++){
-             |    if(_gcl[i].tagName.toLowerCase()=='input'&&_gcl[i].getAttribute('type')=='submit'){
-             |      _gcl[i].click();
-             |    }
-             |  }
-             |}""".stripMargin)
+        // 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
+        engine.load(s"https://${ProxyServer.RemoteHost}/intel?ll=$lat,$lng&z=17")
         // 次の位置へ移動するか終了ならウィンドウをクローズ
         val nextLng = lng + lngUnit(lat) * distance
         if(nextLng <= east){
