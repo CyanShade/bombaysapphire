@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2014 koiroha.org.
+ * All sources and related resources are available under Apache License 2.0.
+ * http://www.apache.org/licenses/LICENSE-2.0.html
+*/
 package org.koiroha.bombaysapphire
 
 import java.net.InetSocketAddress
@@ -18,9 +23,14 @@ import scala.collection.JavaConversions._
 import scala.slick.driver.PostgresDriver.simple._
 import scala.slick.jdbc.StaticQuery.interpolation
 
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ProxyServer
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
- * ポート 80/443 上で Listen してサイトから返される JSON 情報を取得する HTTP プロキシ。
- * 80/443 出動作させるためには root で実行する必要があるため利便性のためプロセスとして分離している。
+ * ポート 80/443 上で Listen してサイトから返される JSON 情報を取得し ParserActor に渡す HTTP プロキシ。
+ * Unix 系 OS でポート 80/443 を使用するには root 権限で起動する必要があるため、デバッガの利便性のためプロセスを
+ * 分離している。
+ * @author Takami Torao
  */
 object ProxyServer extends App with DBAccess {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
@@ -29,7 +39,9 @@ object ProxyServer extends App with DBAccess {
   /** 検索避けのためシーザー暗号で簡単な難読化 */
   def dec(s:String):String = s.map{ _ + 3 }.map{ _.toChar }.mkString
 
+  /** かのサイトのホスト名 */
   def RemoteHost = dec("ttt+fkdobpp+`lj")   // ホスト名
+  /** かのサイトのホストアドレス */
   def RemoteAddress = dec("4/+.1+/16+.5-")  // IP アドレス
 
   /** 接続用の HTTP クライアント */

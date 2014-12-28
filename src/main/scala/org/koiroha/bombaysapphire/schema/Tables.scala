@@ -123,7 +123,7 @@ trait Tables {
   /** Entity class storing rows of table Portals
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param guid Database column guid DBType(varchar), Length(2147483647,true)
-   *  @param regionId Database column region_id DBType(varchar), Length(2147483647,true)
+   *  @param tileKey Database column tile_key DBType(varchar), Length(2147483647,true)
    *  @param late6 Database column late6 DBType(int4)
    *  @param lnge6 Database column lnge6 DBType(int4)
    *  @param title Database column title DBType(varchar), Length(2147483647,true)
@@ -132,7 +132,7 @@ trait Tables {
    *  @param createdAt Database column created_at DBType(timestamp)
    *  @param updatedAt Database column updated_at DBType(timestamp)
    *  @param deletedAt Database column deleted_at DBType(timestamp), Default(None) */
-  case class PortalsRow(id: Int, guid: String, regionId: String, late6: Int, lnge6: Int, title: String, image: String, nearlyGeohash: Option[String] = None, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None)
+  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, nearlyGeohash: Option[String] = None, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None)
   /** GetResult implicit for fetching PortalsRow objects using plain SQL queries */
   implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp], e4: GR[Option[java.sql.Timestamp]]): GR[PortalsRow] = GR{
     prs => import prs._
@@ -140,16 +140,16 @@ trait Tables {
   }
   /** Table description of table portals. Objects of this class serve as prototypes for rows in queries. */
   class Portals(_tableTag: Tag) extends Table[PortalsRow](_tableTag, Some("intel"), "portals") {
-    def * = (id, guid, regionId, late6, lnge6, title, image, nearlyGeohash, createdAt, updatedAt, deletedAt) <> (PortalsRow.tupled, PortalsRow.unapply)
+    def * = (id, guid, tileKey, late6, lnge6, title, image, nearlyGeohash, createdAt, updatedAt, deletedAt) <> (PortalsRow.tupled, PortalsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, guid.?, regionId.?, late6.?, lnge6.?, title.?, image.?, nearlyGeohash, createdAt.?, updatedAt.?, deletedAt).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8, _9.get, _10.get, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, nearlyGeohash, createdAt.?, updatedAt.?, deletedAt).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8, _9.get, _10.get, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column guid DBType(varchar), Length(2147483647,true) */
     val guid: Column[String] = column[String]("guid", O.Length(2147483647,varying=true))
-    /** Database column region_id DBType(varchar), Length(2147483647,true) */
-    val regionId: Column[String] = column[String]("region_id", O.Length(2147483647,varying=true))
+    /** Database column tile_key DBType(varchar), Length(2147483647,true) */
+    val tileKey: Column[String] = column[String]("tile_key", O.Length(2147483647,varying=true))
     /** Database column late6 DBType(int4) */
     val late6: Column[Int] = column[Int]("late6")
     /** Database column lnge6 DBType(int4) */

@@ -13,6 +13,9 @@ import org.koiroha.bombaysapphire.PortalDetails.{Mod, Resonator}
 import org.koiroha.bombaysapphire.RegionScoreDetails._
 import org.slf4j.LoggerFactory
 
+/**
+ * Enlightened, Resistance (あるいは Neutral) を表す定数。DB 保存用にそれぞれ識別文字を持っている。
+ */
 sealed abstract class Team(val symbol:Char)
 object Team {
 	private[this] val logger = LoggerFactory.getLogger(classOf[Team])

@@ -24,6 +24,7 @@ import scala.slick.jdbc.StaticQuery.interpolation
 // ParserActor
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
+ * ProxyServer から渡された JSON を解析しそれぞれのエンティティごとに格納する。
  * @author Takami Torao
  */
 class ParserActor extends Actor with ActorLogging with DBAccess {
@@ -35,6 +36,13 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 	 */
 	private[this] val saveLog = false
 
+	// ==============================================================================================
+	// JSON の受信
+	// ==============================================================================================
+	/**
+	 * Entities の JSON データ量が数MB単位となり Akka Remoting では受け渡しに支障が出るため (設定を変更すれば
+	 * 良さそうだが結局生ログ保存は必要なので) ID だけ受け渡して DB 経由で JSON を取得する。
+	 */
 	def receive = {
 		case ParseTask(method, logid, runAt) =>
 			val tm = new Timestamp(runAt)
@@ -49,13 +57,13 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 				// デバッグや分析に不要な大量のゴミ情報を除去
 				val json = parse(content).transformField{
 					case ("v",v) =>
-						logger.debug(s"v: ${v.extract[String]}")
+						// logger.debug(s"v: ${v.extract[String]}")
 						"v" -> JNull
 					case ("b",b) =>
-						logger.debug(s"b: ${b.extract[String]}")
+						// logger.debug(s"b: ${b.extract[String]}")
 						"b" -> JNull
 					case ("c",c) =>
-						logger.debug(s"c: ${compact(render(c))}")
+						// logger.debug(s"c: ${compact(render(c))}")
 						"c" -> JNull
 				}
 				(method match {
@@ -81,15 +89,18 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 		case Shutdown() => context.stop(self)
 	}
 
+	// ==============================================================================================
+	// エンティティの保存
+	// ==============================================================================================
 	/**
 	 * 取得したエンティティをデータベースに保存。
 	 * @param tm 取得日時
 	 */
 	private[this] def saveEntities(tm:Timestamp, entities:Entities)(implicit session:Session):Unit = {
 		val start = System.currentTimeMillis()
-		entities.map.foreach{ case (regionId, rm) =>
+		val newPortals = entities.map.map{ case (tileKey, rm) =>
 			// 削除されたポータルの検出と削除
-			val avails = Tables.Portals.filter{ p => p.regionId === regionId && p.deletedAt.isEmpty }.map{ p => p.guid }.run
+			val avails = Tables.Portals.filter{ p => p.tileKey === tileKey && p.deletedAt.isEmpty }.map{ p => p.guid }.run
 			avails.intersect(rm.deletedGameEntityGuids).foreach { guid =>
 				val (id, latE6, lngE6, title, geohash) = Tables.Portals.filter{ p => p.guid === guid }
 					.map { p => (p.id, p.late6, p.lnge6, p.title, p.nearlyGeohash)
@@ -105,13 +116,15 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 				Tables.Portals.filter{ p => p.guid === guid && p.deletedAt.isEmpty }.map{ p => p.deletedAt }.update(Some(tm))
 			}
 			// 各種エンティティの保存
-			rm.gameEntities.foreach {
-				case cp:Portal => savePortal(tm, regionId, cp)
-				case _ => None
-			}
-		}
+			rm.gameEntities.map {
+				case cp:Portal =>
+					if(savePortal(tm, tileKey, cp)) 1 else 0
+				case _ => 0
+			}.sum
+		}.sum
 		val time = System.currentTimeMillis() - start
-		logger.debug(f"entities saved: ${entities.map.keys.mkString(",")}%s ($time%,d[ms])")
+		val portals = entities.map.values.map{ _.gameEntities.size }.sum
+		logger.debug(f"entities saved: ${entities.map.keys.mkString(",")}%s; $newPortals%,d/$portals%,d new portals, $time%,d[ms]")
 	}
 
 	/**
@@ -119,7 +132,7 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 	 * @param tm 取得日時
 	 */
 	private[this] def savePortalDetail(tm:Timestamp, pd:PortalDetails, req:String)(implicit session:Session):Unit = {
-		// レスポンスの PortalDetails には guid が含まれないためリクエスト中の guid を取得する
+		// レスポンスの PortalDetails には guid が含まれないためリクエスト中から guid を取得する
 		// {"guid":"8cf1eb0d834f4f64898d9e683849d44e.16","v":"...","b":"...","c":"..."}
 		(getContentAsJSON(req) \ "guid").extractOpt[String] match {
 			case Some(guid) =>
@@ -137,8 +150,9 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 	/**
 	 * 取得したポータルをデータベースに保存。
 	 * @param tm 取得日時
+	 * @return 新規に保存したとき true
 	 */
-	private[this] def savePortal(tm:Timestamp, regionId:String, cp:Portal)(implicit session:Session):Unit = {
+	private[this] def savePortal(tm:Timestamp, regionId:String, cp:Portal)(implicit session:Session):Boolean = {
 		Tables.Portals.filter{ p => p.guid === cp.guid && p.deletedAt.isEmpty }.firstOption match {
 			case Some(p) =>
 				val record = Tables.Portals.filter{ x => x.id === p.id }
@@ -157,15 +171,17 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 						(x.late6,x.lnge6,x.nearlyGeohash,x.updatedAt)
 					}.update((cp.latE6,cp.lngE6,geoHash.map{ _.geohash },tm))
 				}
-				// リージョンの変更
-				if(p.regionId != regionId){
-					record.map{ x => (x.regionId,x.updatedAt) }.update((regionId,tm))
+				// タイルキーの変更
+				if(p.tileKey != regionId){
+					record.map{ x => (x.tileKey,x.updatedAt) }.update((regionId,tm))
 				}
+				false
 			case None =>
 				val geoHash = findGeoHash(cp.latE6, cp.lngE6).map{ _.geohash }
 				Tables.Portals.map{ x =>
-					(x.guid, x.title, x.image, x.regionId, x.late6, x.lnge6, x.nearlyGeohash, x.createdAt, x.updatedAt)
+					(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.nearlyGeohash, x.createdAt, x.updatedAt)
 				}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, geoHash, tm, tm))
+				true
 		}
 	}
 
@@ -193,13 +209,9 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 	}
 }
 object ParserActor extends App {
-	val config = ConfigFactory.load("parser.conf")
-	val system = ActorSystem.apply("bombaysapphire", config)
-	val actor1 = system.actorOf(Props[ParserActor], "parser")
-/*
-	actor1 ! "Local"
-
-	Thread.sleep(60000)
-	system.shutdown()
-*/
+	override def main(args:Array[String]):Unit = {
+		val config = ConfigFactory.load("parser.conf")
+		val system = ActorSystem.apply("bombaysapphire", config)
+		system.actorOf(Props[ParserActor], "parser")
+	}
 }

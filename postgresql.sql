@@ -34,10 +34,10 @@ create table intel.logs(
 create table intel.portals(
   id bigint not null primary key,
   guid varchar not null unique,
-  region_id varchar not null,
+  tile_key varchar not null,
   nearly_geohash char(5) null,
-  latE6 integer not null,
-  lngE6 integer not null,
+  late6 integer not null,
+  lnge6 integer not null,
   title varchar not null,
   image varchar not null,
   created_at timestamp not null default current_timestamp,
@@ -46,6 +46,7 @@ create table intel.portals(
 ) with(oids=false);
 
 create unique index portal_idx00 on intel.portals(guid)
+create unique index portal_idx00 on intel.portals(tile_key)
 
 create table intel.agents(
   id serial not null primary key,

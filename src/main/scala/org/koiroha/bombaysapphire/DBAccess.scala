@@ -11,6 +11,9 @@ import scala.slick.driver.PostgresDriver.simple._
 // DBAccess
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
+ * ```
+ * import scala.slick.driver.PostgresDriver.simple._
+ * ```
  * @author Takami Torao
  */
 trait DBAccess {
