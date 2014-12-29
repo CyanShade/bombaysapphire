@@ -16,7 +16,7 @@ import com.twitter.util.Future
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.BasicConfigurator
 import org.jboss.netty.buffer.ChannelBuffer
-import org.jboss.netty.handler.codec.http.{HttpMethod, HttpRequest, HttpResponse}
+import org.jboss.netty.handler.codec.http._
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
@@ -32,26 +32,20 @@ import scala.slick.jdbc.StaticQuery.interpolation
  * 分離している。
  * @author Takami Torao
  */
-object ProxyServer extends App with DBAccess {
+object ProxyServer extends App {
   val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))
   BasicConfigurator.configure()
-
-  /** 検索避けのためシーザー暗号で簡単な難読化 */
-  def dec(s:String):String = s.map{ _ + 3 }.map{ _.toChar }.mkString
-
-  /** かのサイトのホスト名 */
-  def RemoteHost = dec("ttt+fkdobpp+`lj")   // ホスト名
-  /** かのサイトのホストアドレス */
-  def RemoteAddress = dec("4/+.1+/16+.5-")  // IP アドレス
 
   /** 接続用の HTTP クライアント */
   val Client = ClientBuilder()
     .codec(com.twitter.finagle.http.Http())
-    .hosts(s"$RemoteAddress:443")
-    .tls(RemoteHost)
+    .hosts(s"${Context.RemoteAddress}:443")
+    .tls(Context.RemoteHost)
     .hostConnectionLimit(5)
     .build()
+
   val UriPrefix = "/r/(.*)".r
+  val BypassPrefix = "/stat/(.*)".r
 
   val system = ActorSystem("bombaysapphire", ConfigFactory.load("proxy.conf"))
   val worker = system.actorSelection("akka.tcp://bombaysapphire@localhost:2552/user/parser")
@@ -65,8 +59,8 @@ object ProxyServer extends App with DBAccess {
         .foldLeft(RequestBuilder()){ case (r, (k, vs)) =>
           r.setHeader(k, vs)
         }
-        .url(s"https://$RemoteAddress${request.getUri}")
-        .setHeader("Host", RemoteHost)
+        .url(s"https://${Context.RemoteAddress}${request.getUri}")
+        .setHeader("Host", Context.RemoteHost)
         .build(request.getMethod, if(request.getMethod == HttpMethod.GET) None else Option(request.getContent))
       proxyRequest.getUri match {
         case UriPrefix(name) =>
@@ -94,7 +88,7 @@ object ProxyServer extends App with DBAccess {
       "\n" + content
 
     // Akka 経由では大きなデータを受け渡しに支障が出るので共有ストレージ的な場所を経由して受け渡し
-    db.withSession { implicit session =>
+    Context.Database.withSession { implicit session =>
       val id = scala.util.Random.nextLong()
       try {
         sqlu"insert into intel.logs(id,method,content,request,response) values($id,$method,$content::jsonb,$req,$res)".first.run
@@ -118,16 +112,26 @@ object ProxyServer extends App with DBAccess {
     }
   }
 
-  logger.info(s"starting bombay-sapphire on port 80/443")
-  ServerBuilder()
-    .codec(com.twitter.finagle.http.Http())
-    .bindTo(new InetSocketAddress(80))
-    .name("bombay-sapphire")
-    .build(service)
-  ServerBuilder()
-    .codec(com.twitter.finagle.http.Http())
-    .bindTo(new InetSocketAddress(443))
-    .name("bombay-sapphire-ssl")
-    .tls("server.crt", "server.key")
-    .build(service)
+  if(! args.contains("--without-admin")){
+    logger.info(s"starting bombay-sapphire administration server on port 8080")
+    ServerBuilder()
+      .codec(com.twitter.finagle.http.Http())
+      .bindTo(new InetSocketAddress(8080))
+      .name("bombay-sapphire-stat")
+      .build(new StatService)
+  }
+  if(! args.contains("--without-server")){
+    logger.info(s"starting bombay-sapphire proxy server on port 80/443")
+    ServerBuilder()
+      .codec(com.twitter.finagle.http.Http())
+      .bindTo(new InetSocketAddress(80))
+      .name("bombay-sapphire")
+      .build(service)
+    ServerBuilder()
+      .codec(com.twitter.finagle.http.Http())
+      .bindTo(new InetSocketAddress(443))
+      .name("bombay-sapphire-ssl")
+      .tls("server.crt", "server.key")
+      .build(service)
+  }
 }

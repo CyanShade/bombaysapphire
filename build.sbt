@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
   "org.postgresql" % "postgresql" % "9.3-1102-jdbc41",
   "org.json4s" %% "json4s-native" % "3.2.11",
   "ch.hsr" % "geohash" % "1.0.10",
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.1",
+  "org.scala-lang.modules" %% "scala-xml" %  "1.0.1",
   "org.slf4j" %  "slf4j-log4j12" % "1.7.7"
 )
 

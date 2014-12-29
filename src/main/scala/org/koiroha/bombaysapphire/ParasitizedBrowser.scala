@@ -5,24 +5,22 @@
 */
 package org.koiroha.bombaysapphire
 
-import java.io.{FileInputStream, File}
+import java.io.{File, FileInputStream}
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.Properties
 import java.util.function.Consumer
-import java.util.{Properties, Timer, TimerTask}
 import javafx.application.{Application, Platform}
 import javafx.scene.web.{WebEngine, WebView}
 import javafx.scene.{Group, Scene}
 import javafx.stage.Stage
 import javax.net.ssl.{HttpsURLConnection, SSLContext, TrustManager, X509TrustManager}
 
-import ch.hsr.geohash.GeoHash
 import org.koiroha.bombaysapphire.ParasitizedBrowser.Scenario
-import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Element, Node, NodeList}
+
 import scala.collection.JavaConversions._
-import scala.slick.driver.PostgresDriver.simple._
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ParasitizedBrowser
@@ -85,7 +83,7 @@ class ParasitizedBrowser extends Application {
     // Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36
 
     // 初期ページの表示
-    engine.load(s"https://${ProxyServer.RemoteHost}/intel")
+    engine.load(s"https://${Context.RemoteHost}/intel")
   }
 
 }
@@ -94,8 +92,6 @@ object ParasitizedBrowser {
   private[ParasitizedBrowser] val logger = LoggerFactory.getLogger(classOf[ParasitizedBrowser])
   def main(args:Array[String]):Unit = Application.launch(classOf[ParasitizedBrowser], args:_*)
 
-  val timer = new Timer("ParasitizedBrowser", true)
-
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // シナリオ
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -103,14 +99,14 @@ object ParasitizedBrowser {
    * サインインが完了すると地点表示ループに入り北西側の緯度経度から南東側の緯度経度に向かって特定の距離ごとに表示
    * して行く。
    */
-  private[ParasitizedBrowser] class Scenario(conf:Map[String,String], engine:WebEngine, view:WebView, primaryStage:Stage) extends DBAccess {
+  private[ParasitizedBrowser] class Scenario(conf:Map[String,String], engine:WebEngine, view:WebView, primaryStage:Stage) {
     private[this] var step = 0
 
     /** アカウント情報 */
     val account = conf("account")
     val password = conf("password")
 
-    def next():Unit = if(engine.getLocation == s"https://${ProxyServer.RemoteHost}/intel") {
+    def next():Unit = if(engine.getLocation == s"https://${Context.RemoteHost}/intel") {
       if (step == 0) {
         // Step1: <a>Sign In</a> をクリックする
         engine.getDocument.getElementsByTagName("a").toList.find { n => n.getTextContent == "Sign in"} match {
@@ -136,18 +132,13 @@ object ParasitizedBrowser {
 				""".stripMargin)
       logger.info(s"[Step${step + 1}}] Sign-in: ${engine.getLocation}")
       step += 1
-    } else if(engine.getLocation.startsWith(s"https://${ProxyServer.RemoteHost}/intel?")){
+    } else if(engine.getLocation.startsWith(s"https://${Context.RemoteHost}/intel?")){
       None
     } else {
       logger.info(s"[Step${step+1}] Unexpected Location: ${engine.getLocation}")
       primaryStage.close()
     }
 
-    /** 表示範囲 */
-    val north = conf("region.north").toDouble
-    val south = conf("region.south").toDouble
-    val west = conf("region.west").toDouble
-    val east = conf("region.east").toDouble
     /** 地球の外周[km] */
     val earthRound = 40000.0
     /** 1kmあたりの緯度 */
@@ -165,37 +156,31 @@ object ParasitizedBrowser {
     /**
      * 指定時間後に指定された場所を表示。位置が south/east を超えたらウィンドウを閉じる。
      */
-    def loop(tm:Long, lat:Double = north, lng:Double = west):Unit = {
+    def loop(tm:Long, lat:Double = Context.Region.north, lng:Double = Context.Region.west):Unit = {
       def _exec() = {
-        // 位置情報のログ表示
-        val location = db.withSession { implicit session =>
-          val geohash = GeoHash.withCharacterPrecision(lat, lng, 5).toBase32
-          Tables.Geohash.filter{ _.geohash === geohash }
-            .firstOption.map{ g => s"${g.city}, ${g.state}, ${g.country}" }.getOrElse("unknown")
-        }
-        logger.debug(f"[Step${step+1}] stepping next location: ($lat%.6f/$lng%.6f); $location")
+        logger.debug(f"[Step${step+1}] stepping next location: ($lat%.6f/$lng%.6f)")
         step += 1
         // 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
-        engine.load(s"https://${ProxyServer.RemoteHost}/intel?ll=$lat,$lng&z=17")
+        engine.load(s"https://${Context.RemoteHost}/intel?ll=$lat,$lng&z=17")
         // 次の位置へ移動するか終了ならウィンドウをクローズ
         val nextLng = lng + lngUnit(lat) * distance
-        if(nextLng <= east){
+        if(nextLng <= Context.Region.east){
           loop(waitInterval, lat, nextLng)
         } else {
           val nextLat = lat - latUnit * distance
-          if(nextLat >= south){
-            loop(waitInterval, nextLat, west)
+          if(nextLat >= Context.Region.south){
+            loop(waitInterval, nextLat, Context.Region.west)
           } else {
             logger.debug(f"[Step${step+1}] finish")
             primaryStage.close()
           }
         }
       }
-      timer.schedule(new TimerTask {
-        override def run() = Platform.runLater(new Runnable {
+      Batch.runAfter(tm){
+        Platform.runLater(new Runnable {
           override def run() = _exec()
         })
-      }, tm)
+      }
     }
   }
 

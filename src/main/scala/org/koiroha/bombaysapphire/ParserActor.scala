@@ -8,7 +8,6 @@ package org.koiroha.bombaysapphire
 import java.sql.Timestamp
 
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
-import ch.hsr.geohash.GeoHash
 import com.typesafe.config.ConfigFactory
 import org.json4s.JsonAST.JNull
 import org.json4s.native.JsonMethods._
@@ -27,7 +26,7 @@ import scala.slick.jdbc.StaticQuery.interpolation
  * ProxyServer から渡された JSON を解析しそれぞれのエンティティごとに格納する。
  * @author Takami Torao
  */
-class ParserActor extends Actor with ActorLogging with DBAccess {
+class ParserActor extends Actor with ActorLogging {
 	private[ParserActor] val logger = LoggerFactory.getLogger(classOf[ParserActor])
 	private[this] implicit val formats = DefaultFormats
 
@@ -47,7 +46,7 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 		case ParseTask(method, logid, runAt) =>
 			val tm = new Timestamp(runAt)
 
-			db.withSession { implicit session =>
+			Context.Database.withSession { implicit session =>
 				// 共有ストレージ経由で Blob データを取得
 				val (content,request,response) = Tables.Logs.filter { _.id === logid }.map{ l => (l.content,l.request,l.response) }.first
 				if(! saveLog){
@@ -66,7 +65,9 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 						// logger.debug(s"c: ${compact(render(c))}")
 						"c" -> JNull
 				}
-				(method match {
+				if(json.children.size == 0){
+					logger.error(s"empty response: $method=$content")
+				} else (method match {
 					case "getGameScore" => GameScore(json \ "result")
 					case "getRegionScoreDetails" => RegionScoreDetails(json)
 					case "getPlexts" => Plext(json)
@@ -103,7 +104,7 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 			val avails = Tables.Portals.filter{ p => p.tileKey === tileKey && p.deletedAt.isEmpty }.map{ p => p.guid }.run
 			avails.intersect(rm.deletedGameEntityGuids).foreach { guid =>
 				val (id, latE6, lngE6, title, geohash) = Tables.Portals.filter{ p => p.guid === guid }
-					.map { p => (p.id, p.late6, p.lnge6, p.title, p.nearlyGeohash)
+					.map { p => (p.id, p.late6, p.lnge6, p.title, p.geohash)
 				}.first
 				val location = Tables.Geohash.filter { g => g.geohash === geohash}
 						.map { g => (g.country, g.state, g.city)
@@ -166,10 +167,10 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 				}
 				// 位置の変更
 				if(p.late6 != cp.latE6 || p.lnge6 != cp.lngE6){
-					val geoHash = findGeoHash(cp.latE6, cp.lngE6)
 					record.map{ x =>
-						(x.late6,x.lnge6,x.nearlyGeohash,x.updatedAt)
-					}.update((cp.latE6,cp.lngE6,geoHash.map{ _.geohash },tm))
+						(x.late6,x.lnge6,x.updatedAt)
+					}.update((cp.latE6,cp.lngE6,tm))
+					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6)
 				}
 				// タイルキーの変更
 				if(p.tileKey != regionId){
@@ -177,11 +178,15 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 				}
 				false
 			case None =>
-				val geoHash = findGeoHash(cp.latE6, cp.lngE6).map{ _.geohash }
-				Tables.Portals.map{ x =>
-					(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.nearlyGeohash, x.createdAt, x.updatedAt)
-				}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, geoHash, tm, tm))
-				true
+				// 有効範囲のものだけ新規ポータルとして追加
+				if(GeoCode.available(cp.latE6/1e6, cp.lngE6/1e6)){
+					Tables.Portals.map{ x =>
+						(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
+					}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
+					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6)
+					logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
+					true
+				} else false
 		}
 	}
 
@@ -200,16 +205,22 @@ class ParserActor extends Actor with ActorLogging with DBAccess {
 	/**
 	 * 緯度/経度に対して最も近い定義済み GeoHash を参照。
 	 */
-	private[this] def findGeoHash(latE6:Int, lngE6:Int)(implicit session:Session):Option[Tables.Geohash#TableElementType] = {
-		val geoHash = GeoHash.withCharacterPrecision(latE6 / 1e6, lngE6 / 1e6, 5).toBase32
-		Tables.Geohash.filter{ _.geohash === geoHash }.firstOption.orElse{
-			val g = geoHash.substring(0, 4)
-			Tables.Geohash.filter{ _.geohash like s"$g%" }.firstOption
+	private[this] def setGeoHashAsync(guid:String, latE6:Int, lngE6:Int):Unit = {
+		import scala.concurrent.ExecutionContext.Implicits.global
+		// 行政区情報は API を使用するため非同期で設定
+		GeoCode.getLocation(latE6/1e6, lngE6/1e6).onSuccess {
+			case Some(location) =>
+				Context.Database.withSession { implicit session =>
+					Tables.Portals
+						.filter{ _.guid === guid }.map{ x => (x.geohash, x.updatedAt) }
+						.update((Some(location.geoHash), new Timestamp(System.currentTimeMillis())))
+				}
+			case None => None
 		}
 	}
 }
-object ParserActor extends App {
-	override def main(args:Array[String]):Unit = {
+object ParserActor {
+	def main(args:Array[String]):Unit = {
 		val config = ConfigFactory.load("parser.conf")
 		val system = ActorSystem.apply("bombaysapphire", config)
 		system.actorOf(Props[ParserActor], "parser")

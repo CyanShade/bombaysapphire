@@ -51,26 +51,27 @@ trait Tables {
   lazy val Agents = new TableQuery(tag => new Agents(tag))
   
   /** Entity class storing rows of table Geohash
-   *  @param geohash Database column geohash DBType(bpchar), PrimaryKey, Length(5,false)
+   *  @param geohash Database column geohash DBType(bpchar), PrimaryKey, Length(10,false)
    *  @param late5 Database column late5 DBType(int4)
    *  @param lnge5 Database column lnge5 DBType(int4)
    *  @param country Database column country DBType(bpchar), Length(2,false)
    *  @param state Database column state DBType(varchar), Length(2147483647,true)
-   *  @param city Database column city DBType(varchar), Length(2147483647,true) */
-  case class GeohashRow(geohash: String, late5: Int, lnge5: Int, country: String, state: String, city: String)
+   *  @param city Database column city DBType(varchar), Length(2147483647,true)
+   *  @param createdAt Database column created_at DBType(timestamp) */
+  case class GeohashRow(geohash: String, late5: Int, lnge5: Int, country: String, state: String, city: String, createdAt: java.sql.Timestamp)
   /** GetResult implicit for fetching GeohashRow objects using plain SQL queries */
-  implicit def GetResultGeohashRow(implicit e0: GR[String], e1: GR[Int]): GR[GeohashRow] = GR{
+  implicit def GetResultGeohashRow(implicit e0: GR[String], e1: GR[Int], e2: GR[java.sql.Timestamp]): GR[GeohashRow] = GR{
     prs => import prs._
-    GeohashRow.tupled((<<[String], <<[Int], <<[Int], <<[String], <<[String], <<[String]))
+    GeohashRow.tupled((<<[String], <<[Int], <<[Int], <<[String], <<[String], <<[String], <<[java.sql.Timestamp]))
   }
   /** Table description of table geohash. Objects of this class serve as prototypes for rows in queries. */
   class Geohash(_tableTag: Tag) extends Table[GeohashRow](_tableTag, Some("intel"), "geohash") {
-    def * = (geohash, late5, lnge5, country, state, city) <> (GeohashRow.tupled, GeohashRow.unapply)
+    def * = (geohash, late5, lnge5, country, state, city, createdAt) <> (GeohashRow.tupled, GeohashRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (geohash.?, late5.?, lnge5.?, country.?, state.?, city.?).shaped.<>({r=>import r._; _1.map(_=> GeohashRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (geohash.?, late5.?, lnge5.?, country.?, state.?, city.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> GeohashRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
-    /** Database column geohash DBType(bpchar), PrimaryKey, Length(5,false) */
-    val geohash: Column[String] = column[String]("geohash", O.PrimaryKey, O.Length(5,varying=false))
+    /** Database column geohash DBType(bpchar), PrimaryKey, Length(10,false) */
+    val geohash: Column[String] = column[String]("geohash", O.PrimaryKey, O.Length(10,varying=false))
     /** Database column late5 DBType(int4) */
     val late5: Column[Int] = column[Int]("late5")
     /** Database column lnge5 DBType(int4) */
@@ -81,6 +82,8 @@ trait Tables {
     val state: Column[String] = column[String]("state", O.Length(2147483647,varying=true))
     /** Database column city DBType(varchar), Length(2147483647,true) */
     val city: Column[String] = column[String]("city", O.Length(2147483647,varying=true))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
   }
   /** Collection-like TableQuery object for table Geohash */
   lazy val Geohash = new TableQuery(tag => new Geohash(tag))
@@ -128,21 +131,21 @@ trait Tables {
    *  @param lnge6 Database column lnge6 DBType(int4)
    *  @param title Database column title DBType(varchar), Length(2147483647,true)
    *  @param image Database column image DBType(varchar), Length(2147483647,true)
-   *  @param nearlyGeohash Database column nearly_geohash DBType(bpchar), Length(5,false), Default(None)
    *  @param createdAt Database column created_at DBType(timestamp)
    *  @param updatedAt Database column updated_at DBType(timestamp)
-   *  @param deletedAt Database column deleted_at DBType(timestamp), Default(None) */
-  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, nearlyGeohash: Option[String] = None, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None)
+   *  @param deletedAt Database column deleted_at DBType(timestamp), Default(None)
+   *  @param geohash Database column geohash DBType(bpchar), Length(10,false), Default(None) */
+  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None, geohash: Option[String] = None)
   /** GetResult implicit for fetching PortalsRow objects using plain SQL queries */
-  implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp], e4: GR[Option[java.sql.Timestamp]]): GR[PortalsRow] = GR{
+  implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[java.sql.Timestamp], e3: GR[Option[java.sql.Timestamp]], e4: GR[Option[String]]): GR[PortalsRow] = GR{
     prs => import prs._
-    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<?[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp]))
+    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp], <<?[String]))
   }
   /** Table description of table portals. Objects of this class serve as prototypes for rows in queries. */
   class Portals(_tableTag: Tag) extends Table[PortalsRow](_tableTag, Some("intel"), "portals") {
-    def * = (id, guid, tileKey, late6, lnge6, title, image, nearlyGeohash, createdAt, updatedAt, deletedAt) <> (PortalsRow.tupled, PortalsRow.unapply)
+    def * = (id, guid, tileKey, late6, lnge6, title, image, createdAt, updatedAt, deletedAt, geohash) <> (PortalsRow.tupled, PortalsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, nearlyGeohash, createdAt.?, updatedAt.?, deletedAt).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8, _9.get, _10.get, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, createdAt.?, updatedAt.?, deletedAt, geohash).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -158,14 +161,14 @@ trait Tables {
     val title: Column[String] = column[String]("title", O.Length(2147483647,varying=true))
     /** Database column image DBType(varchar), Length(2147483647,true) */
     val image: Column[String] = column[String]("image", O.Length(2147483647,varying=true))
-    /** Database column nearly_geohash DBType(bpchar), Length(5,false), Default(None) */
-    val nearlyGeohash: Column[Option[String]] = column[Option[String]]("nearly_geohash", O.Length(5,varying=false), O.Default(None))
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
     /** Database column updated_at DBType(timestamp) */
     val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
     /** Database column deleted_at DBType(timestamp), Default(None) */
     val deletedAt: Column[Option[java.sql.Timestamp]] = column[Option[java.sql.Timestamp]]("deleted_at", O.Default(None))
+    /** Database column geohash DBType(bpchar), Length(10,false), Default(None) */
+    val geohash: Column[Option[String]] = column[Option[String]]("geohash", O.Length(10,varying=false), O.Default(None))
     
     /** Uniqueness Index over (guid) (database name portal_idx00) */
     val index1 = index("portal_idx00", guid, unique=true)

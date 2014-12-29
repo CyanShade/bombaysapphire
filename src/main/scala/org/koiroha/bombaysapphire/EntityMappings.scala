@@ -283,7 +283,11 @@ object Implicit {
 		} catch {
 			case _:Checked => None
 			case ex:Exception =>
-				logger.warn(s"parse error: ${pretty(render(value))}", ex)
+				if(value == JNothing) {
+					logger.warn(s"parse error: JNothing", ex)
+				} else {
+					logger.warn(s"parse error: ${pretty(render(value))}", ex)
+				}
 				None
 		}
 		def transform[T](f: =>T):T = try {

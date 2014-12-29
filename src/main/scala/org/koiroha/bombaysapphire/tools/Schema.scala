@@ -1,18 +1,18 @@
 package org.koiroha.bombaysapphire.tools
 
-import org.koiroha.bombaysapphire.DBAccess
+import org.koiroha.bombaysapphire.Context
 
 import scala.slick.codegen.SourceCodeGenerator
 
-object Schema extends DBAccess {
+object Schema {
 	def main(args: Array[String]): Unit = SourceCodeGenerator.main(
 		Array(
-			Config.slickDriver,
-			Config.jdbcDriver,
-			Config.url,
+			Context.Database.slickDriver,
+			Context.Database.jdbcDriver,
+			Context.Database.url,
 			"src/main/scala",
 			"org.koiroha.bombaysapphire.schema",
-			Config.username, Config.password
+			Context.Database.username, Context.Database.password
 		)
 	)
 }

@@ -1,25 +1,13 @@
 create schema intel;
 
-create type resonator as(
-  energy integer,
-  level smallint,
-  owner varchar
-);
-
-create type mod as(
-  name varchar,
-  owner varchar,
-  rarity varchar,
-  stats varchar
-);
-
 create table intel.geohash(
-  geohash char(5) not null primary key,
+  geohash char(10) not null primary key,
   late5 integer not null,
   lnge5 integer not null,
   country char(2) not null,
   state varchar not null,
-  city varchar not null
+  city varchar not null,
+  created_at timestamp not null default current_timestamp
 ) with(oids=false);
 
 create table intel.logs(
@@ -35,7 +23,7 @@ create table intel.portals(
   id bigint not null primary key,
   guid varchar not null unique,
   tile_key varchar not null,
-  nearly_geohash char(5) null,
+  geohash char(10) null references intel.geohash(geohash) on delete set null,
   late6 integer not null,
   lnge6 integer not null,
   title varchar not null,
@@ -46,7 +34,8 @@ create table intel.portals(
 ) with(oids=false);
 
 create unique index portal_idx00 on intel.portals(guid)
-create unique index portal_idx00 on intel.portals(tile_key)
+create unique index portal_idx01 on intel.portals(tile_key)
+create unique index portal_idx02 on intel.portals(created_at)
 
 create table intel.agents(
   id serial not null primary key,
