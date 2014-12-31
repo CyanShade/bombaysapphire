@@ -7,9 +7,12 @@ package org.koiroha.bombaysapphire
 
 import java.util.TimeZone
 
+import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
 
 import scala.slick.driver.PostgresDriver
+import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.StaticQuery.interpolation
 import scala.xml.{Elem, XML}
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -41,14 +44,26 @@ object Context {
 	/**
 	 * このアプリケーションが調査の対象とする領域。
 	 */
-	lazy val Region = {
+	lazy val Region:_Region = {
 		val r = (context \ "region").head.asInstanceOf[Elem]
-		val north = (r \@ "north").toDouble
-		val south = (r \@ "south").toDouble
-		val west = (r \@ "west").toDouble
-		val east = (r \@ "east").toDouble
-		logger.info(s"このアプリケーションの探索領域は '${r.attributes("label")}' ($north,$west)-($south,$east) です.")
-		_Region(north, south, west, east)
+		logger.info(s"このアプリケーションの探索領域は '${r.attributes("label")}' です.")
+		(r \@ "country", r\@ "state", r \@ "city") match {
+			case ("", "", "") =>
+				val n = (r \@ "north").toDouble
+				val s = (r \@ "south").toDouble
+				val w = (r \@ "west").toDouble
+				val e = (r \@ "east").toDouble
+				_RectRegion(n, s, e, w)
+			case (country, state, city) =>
+				val ids = Context.Database.withSession{ implicit session =>
+					sql"select id from intel.heuristic_regions where country=$country and (state=$state or ($state='' and state is null)) and (city=$city or ($city='' and city is null)) and side='O'".as[Int].list
+				}
+				if(ids.isEmpty) {
+					throw new IllegalStateException(s"対応する調査領域が heuristic_regions に定義されていません: [$country][$state][$city]")
+				} else {
+					_DBRegion(ids)
+				}
+		}
 	}
 
 	/**
@@ -71,15 +86,40 @@ object Context {
 		_Locale(TimeZone.getTimeZone(d \@ "timezone"), d \@ "language")
 	}
 
-	case class _Region(north:Double, south:Double, west:Double, east:Double) {
-		def contains(lat:Double, lng:Double):Boolean = {
+	trait _Region {
+		val north:Double
+		val south:Double
+		val east:Double
+		val west:Double
+		def contains(lat:Double, lng:Double):Boolean
+	}
+
+	case class _RectRegion(override val north:Double, override val south:Double, override val east:Double, override val west:Double) extends _Region {
+		override def contains(lat:Double, lng:Double):Boolean = {
 			lat >= south && lat <= north && lng >= west && lng <= east
+		}
+	}
+
+	case class _DBRegion(ids:Seq[Int]) extends _Region{
+		private[this] val poly = Context.Database.withSession{ implicit session =>
+			Tables.HeuristicRegions.filter{ _.id.inSet(ids) }.map{ _.region }.run.flatMap{ poly =>
+				if(poly.startsWith("((") && poly.endsWith("))")){
+					poly.substring(2, poly.length - 2).split("\\),\\(")
+						.map{ _.split(",", 2).map{ _.toDouble } }.map{ case Array(lat,lng) => (lat,lng) }.toSeq
+				} else throw new IllegalArgumentException(s"unexpected polygon data format: $poly")
+			}
+		}
+		val (north, east) = poly.reduceLeft{ (l0, l1) => (math.max(l0._1, l1._1), math.max(l0._2, l1._2)) }
+		val (south, west) = poly.reduceLeft{ (l0, l1) => (math.min(l0._1, l1._1), math.min(l0._2, l1._2)) }
+		def contains(lat:Double, lng:Double):Boolean = Context.Database.withSession{ implicit session =>
+			sql"select count(*) from intel.heuristic_regions where id in (#${ids.mkString(",")}) and point '(#$lat,#$lng)' @ region".as[Int].first > 0
 		}
 	}
 
 	case class _Database(slickDriver:String, jdbcDriver:String, url:String, username:String, password:String) {
 		lazy val db = scala.slick.driver.PostgresDriver.simple.Database.forURL(url, user=username, password=password, driver=jdbcDriver)
 		def withSession[T](exec:(PostgresDriver.backend.Session)=>T):T = db.withSession(exec)
+		def withTransaction[T](exec:(PostgresDriver.backend.Session)=>T):T = db.withTransaction(exec)
 	}
 
 	case class _Locale(timezone:TimeZone, language:String) {

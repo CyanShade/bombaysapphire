@@ -14,7 +14,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = Agents.ddl ++ Geohash.ddl ++ Logs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table Agents
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
@@ -52,13 +52,13 @@ trait Tables {
   
   /** Entity class storing rows of table Geohash
    *  @param geohash Database column geohash DBType(bpchar), PrimaryKey, Length(10,false)
-   *  @param late5 Database column late5 DBType(int4)
-   *  @param lnge5 Database column lnge5 DBType(int4)
+   *  @param late6 Database column late6 DBType(int4)
+   *  @param lnge6 Database column lnge6 DBType(int4)
    *  @param country Database column country DBType(bpchar), Length(2,false)
    *  @param state Database column state DBType(varchar), Length(2147483647,true)
    *  @param city Database column city DBType(varchar), Length(2147483647,true)
    *  @param createdAt Database column created_at DBType(timestamp) */
-  case class GeohashRow(geohash: String, late5: Int, lnge5: Int, country: String, state: String, city: String, createdAt: java.sql.Timestamp)
+  case class GeohashRow(geohash: String, late6: Int, lnge6: Int, country: String, state: String, city: String, createdAt: java.sql.Timestamp)
   /** GetResult implicit for fetching GeohashRow objects using plain SQL queries */
   implicit def GetResultGeohashRow(implicit e0: GR[String], e1: GR[Int], e2: GR[java.sql.Timestamp]): GR[GeohashRow] = GR{
     prs => import prs._
@@ -66,16 +66,16 @@ trait Tables {
   }
   /** Table description of table geohash. Objects of this class serve as prototypes for rows in queries. */
   class Geohash(_tableTag: Tag) extends Table[GeohashRow](_tableTag, Some("intel"), "geohash") {
-    def * = (geohash, late5, lnge5, country, state, city, createdAt) <> (GeohashRow.tupled, GeohashRow.unapply)
+    def * = (geohash, late6, lnge6, country, state, city, createdAt) <> (GeohashRow.tupled, GeohashRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (geohash.?, late5.?, lnge5.?, country.?, state.?, city.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> GeohashRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (geohash.?, late6.?, lnge6.?, country.?, state.?, city.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> GeohashRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column geohash DBType(bpchar), PrimaryKey, Length(10,false) */
     val geohash: Column[String] = column[String]("geohash", O.PrimaryKey, O.Length(10,varying=false))
-    /** Database column late5 DBType(int4) */
-    val late5: Column[Int] = column[Int]("late5")
-    /** Database column lnge5 DBType(int4) */
-    val lnge5: Column[Int] = column[Int]("lnge5")
+    /** Database column late6 DBType(int4) */
+    val late6: Column[Int] = column[Int]("late6")
+    /** Database column lnge6 DBType(int4) */
+    val lnge6: Column[Int] = column[Int]("lnge6")
     /** Database column country DBType(bpchar), Length(2,false) */
     val country: Column[String] = column[String]("country", O.Length(2,varying=false))
     /** Database column state DBType(varchar), Length(2147483647,true) */
@@ -87,6 +87,50 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table Geohash */
   lazy val Geohash = new TableQuery(tag => new Geohash(tag))
+  
+  /** Entity class storing rows of table HeuristicRegions
+   *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
+   *  @param country Database column country DBType(bpchar), Length(2,false)
+   *  @param state Database column state DBType(varchar), Length(2147483647,true), Default(None)
+   *  @param city Database column city DBType(varchar), Length(2147483647,true), Default(None)
+   *  @param side Database column side DBType(bpchar), Length(1,false)
+   *  @param seq Database column seq DBType(int4)
+   *  @param region Database column region DBType(polygon), Length(2147483647,false)
+   *  @param createdAt Database column created_at DBType(timestamp)
+   *  @param updatedAt Database column updated_at DBType(timestamp) */
+  case class HeuristicRegionsRow(id: Int, country: String, state: Option[String] = None, city: Option[String] = None, side: String, seq: Int, region: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching HeuristicRegionsRow objects using plain SQL queries */
+  implicit def GetResultHeuristicRegionsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp]): GR[HeuristicRegionsRow] = GR{
+    prs => import prs._
+    HeuristicRegionsRow.tupled((<<[Int], <<[String], <<?[String], <<?[String], <<[String], <<[Int], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table heuristic_regions. Objects of this class serve as prototypes for rows in queries. */
+  class HeuristicRegions(_tableTag: Tag) extends Table[HeuristicRegionsRow](_tableTag, Some("intel"), "heuristic_regions") {
+    def * = (id, country, state, city, side, seq, region, createdAt, updatedAt) <> (HeuristicRegionsRow.tupled, HeuristicRegionsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, country.?, state, city, side.?, seq.?, region.?, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> HeuristicRegionsRow.tupled((_1.get, _2.get, _3, _4, _5.get, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(serial), AutoInc, PrimaryKey */
+    val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column country DBType(bpchar), Length(2,false) */
+    val country: Column[String] = column[String]("country", O.Length(2,varying=false))
+    /** Database column state DBType(varchar), Length(2147483647,true), Default(None) */
+    val state: Column[Option[String]] = column[Option[String]]("state", O.Length(2147483647,varying=true), O.Default(None))
+    /** Database column city DBType(varchar), Length(2147483647,true), Default(None) */
+    val city: Column[Option[String]] = column[Option[String]]("city", O.Length(2147483647,varying=true), O.Default(None))
+    /** Database column side DBType(bpchar), Length(1,false) */
+    val side: Column[String] = column[String]("side", O.Length(1,varying=false))
+    /** Database column seq DBType(int4) */
+    val seq: Column[Int] = column[Int]("seq")
+    /** Database column region DBType(polygon), Length(2147483647,false) */
+    val region: Column[String] = column[String]("region", O.Length(2147483647,varying=false))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    /** Database column updated_at DBType(timestamp) */
+    val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
+  }
+  /** Collection-like TableQuery object for table HeuristicRegions */
+  lazy val HeuristicRegions = new TableQuery(tag => new HeuristicRegions(tag))
   
   /** Entity class storing rows of table Logs
    *  @param id Database column id DBType(int8), PrimaryKey
@@ -169,6 +213,9 @@ trait Tables {
     val deletedAt: Column[Option[java.sql.Timestamp]] = column[Option[java.sql.Timestamp]]("deleted_at", O.Default(None))
     /** Database column geohash DBType(bpchar), Length(10,false), Default(None) */
     val geohash: Column[Option[String]] = column[Option[String]]("geohash", O.Length(10,varying=false), O.Default(None))
+    
+    /** Foreign key referencing Geohash (database name portals_geohash_fkey) */
+    lazy val geohashFk = foreignKey("portals_geohash_fkey", geohash, Geohash)(r => r.geohash, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.SetNull)
     
     /** Uniqueness Index over (guid) (database name portal_idx00) */
     val index1 = index("portal_idx00", guid, unique=true)

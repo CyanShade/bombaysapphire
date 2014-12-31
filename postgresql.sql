@@ -1,14 +1,30 @@
 create schema intel;
+-- このファイルを書き換えるなどして DB のテーブルを直接変更した場合は org.koiroha.bombaysapphire.tools.Schema を再実行すること。
 
 create table intel.geohash(
   geohash char(10) not null primary key,
-  late5 integer not null,
-  lnge5 integer not null,
+  late6 integer not null,
+  lnge6 integer not null,
   country char(2) not null,
   state varchar not null,
   city varchar not null,
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
+
+create table intel.heuristic_regions(
+  id serial not null primary key,
+  country char(2) not null,
+  state varchar null,
+  city varchar null,
+  side char(1) not null, -- 内側の場合 I, 外側の場合 O
+  seq integer not null, -- 同一の行政区内で複数の多角形に分かれる場合の枝番
+  region polygon not null,
+  created_at timestamp not null default current_timestamp,
+  updated_at timestamp not null default current_timestamp,
+  constraint heuristic_regions_country_state_city_seq_side_key unique (country, state, city, seq, side)
+) with(oids=false);
+COMMENT ON COLUMN intel.heuristic_regions.side IS '内側の場合 I, 外側の場合 O';
+COMMENT ON COLUMN intel.heuristic_regions.seq  IS '同一の行政区内で複数の多角形に分かれる場合の枝番';
 
 create table intel.logs(
   id serial not null primary key,

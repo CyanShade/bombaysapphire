@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bombay-sapphire>
+	<region id="TOKYO" label="東京都内" country="JP" state="東京都"/>
+	<!--
 	<region id="TOKYO" label="東京都内" north="35.898594" south="35.501271" west="138.942670" east="139.919852"/>
+	-->
 	<!--
 	<region id="JAPAN" label="日本国内" north="45.574176" south="20.419690" west="122.933056" east="153.991515"/>
 			val maxLat = 45.574176    // 択捉島・カモイワッカ岬

@@ -13,11 +13,11 @@ import ch.hsr.geohash.GeoHash
 import org.json4s.native.JsonMethods._
 import org.json4s.{DefaultFormats, JArray, JValue}
 import org.koiroha.bombaysapphire.schema.Tables
-import org.koiroha.bombaysapphire.tools.GeoCodeBatch
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.StaticQuery.interpolation
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // GeoCode
@@ -51,6 +51,12 @@ object GeoCode {
 	}))
 
 	/**
+	  */
+	def heuristicLocation(lat:Double, lng:Double)(implicit s:Session):Option[(String,String,String)] = {
+		sql"select country,state,city from intel.heuristic_regions where point '(#$lat,#$lng)' @ region and side='I'".as[(String,String,String)].firstOption
+	}
+
+	/**
 	 * 全世界に対して API を使用しないための geocode 有効範囲を判定。
 	 * 現在日本の領域内でのみ有効。
 	 */
@@ -72,15 +78,16 @@ object GeoCode {
 	/**
 	 * 指定された GeoHash の位置情報を取得し DB に保存する。
 	 */
-	private[this] def load(gh:String):Location = {
+	private[this] def load(gh:String):Location = Context.Database.withSession { implicit s =>
+
+		// OVER_QUERY_LIMIT が発生した場合は 10 分間は再問い合わせを行わない。
 		if(overlimit.exists(_ + 60 * 60 * 1000 > System.currentTimeMillis())){
-			// OVER_QUERY_LIMIT が発生した場合は 10 分間は再問い合わせを行わない。
 			throw new IOException("OVER_QUERY_LIMIT")
-		} else Context.Database.withSession { implicit s =>
-			Tables.Geohash.filter {_.geohash === gh}.firstOption
-		} match {
+		}
+
+		Tables.Geohash.filter {_.geohash === gh}.firstOption match {
 			case Some(g) =>
-				// 既に取得済みであれば何もしない
+				// 既に取得済みであればそれを返す
 				Location(gh, g.country, g.state, g.city)
 			case None =>
 				// geohash の該当する位置の情報を取得
@@ -88,6 +95,41 @@ object GeoCode {
 				val p = GeoHash.fromGeohashString(gh).getPoint
 				val lat = p.getLatitude
 				val lng = p.getLongitude
+				val (country, state, city) = heuristicLocation(lat, lng) match {
+					case Some(csc) =>
+						logger.debug("hit heuristics region")
+						csc
+					case None =>
+						logger.debug("calling remote geocode api")
+						val con = new URL(s"http://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&sensor=false").openConnection()
+						con.setRequestProperty("Accept-Language", "ja,en;q=0.8")
+						val result = parse(con.getInputStream)
+						(result \ "status").extract[String] match {
+							case "OK" =>
+								// 短時間に問い合わせをすると OVER_LIMIT に達するため 2 秒待てという仕様
+								Thread.sleep(500)
+								// 結果は複数返ることがあるが先頭のものが最も詳細だがバス停などが入っていることがある
+								findPoliticalAddress(result \ "results") match {
+									case (Some(c), Some(s), Some(ct)) => (c, s, ct)
+									case (Some(c), Some(s), None) => (c, s, "(該当なし)")
+									case (Some(c), None, _) => (c, "(該当なし)", "(該当なし)")
+									case (None, _, _) => ("__", "(該当なし)", "(該当なし)")
+								}
+							case "OVER_QUERY_LIMIT" =>
+								overlimit = Some(System.currentTimeMillis())
+								throw new IOException("OVER_QUERY_LIMIT")
+							case unknown =>
+								throw new IOException(s"goecode api error: $unknown")
+						}
+				}
+				// 取得した位置情報の保存
+				Tables.Geohash
+					.map{ g => (g.geohash, g.late6, g.lnge6, g.country, g.state, g.city) }
+					.insert((gh, (lat * 1e6).toInt, (lng * 1e6).toInt, country, state, city))
+				logger.debug(f"retrieve location: $lat%.6f/$lng%.6f; $country $state $city")
+				Location(gh, country, state, city)
+
+/*
 				val con = new URL(s"http://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&sensor=false").openConnection()
 				con.setRequestProperty("Accept-Language", "ja,en;q=0.8")
 				val result = parse(con.getInputStream)
@@ -101,11 +143,9 @@ object GeoCode {
 							case (None, _, _) => ("__", "(該当なし)", "(該当なし)")
 						}
 						// 取得した位置情報の保存
-						Context.Database.withSession { implicit session =>
-							Tables.Geohash
-								.map{ g => (g.geohash, g.late5, g.lnge5, g.country, g.state, g.city) }
-								.insert((gh, (lat * 1e6).toInt, (lng * 1e6).toInt, country, state, city))
-						}
+						Tables.Geohash
+							.map{ g => (g.geohash, g.late5, g.lnge5, g.country, g.state, g.city) }
+							.insert((gh, (lat * 1e6).toInt, (lng * 1e6).toInt, country, state, city))
 						logger.debug(f"retrieve location: $lat%.6f/$lng%.6f; $country $state $city")
 						// 短時間に問い合わせをすると OVER_LIMIT に達するため 2 秒待てという仕様
 						Thread.sleep(500)
@@ -116,6 +156,7 @@ object GeoCode {
 					case unknown =>
 						throw new IOException(s"goecode api error: $unknown")
 				}
+				*/
 		}
 	}
 
