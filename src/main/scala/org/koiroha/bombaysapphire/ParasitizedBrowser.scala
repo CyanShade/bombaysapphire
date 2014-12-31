@@ -6,6 +6,7 @@
 package org.koiroha.bombaysapphire
 
 import java.io.{File, FileInputStream}
+import java.net.{InetAddress, Socket}
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.Properties
@@ -14,7 +15,7 @@ import javafx.application.{Application, Platform}
 import javafx.scene.web.{WebEngine, WebView}
 import javafx.scene.{Group, Scene}
 import javafx.stage.Stage
-import javax.net.ssl.{HttpsURLConnection, SSLContext, TrustManager, X509TrustManager}
+import javax.net.ssl._
 
 import org.koiroha.bombaysapphire.ParasitizedBrowser.Scenario
 import org.slf4j.LoggerFactory
@@ -31,6 +32,7 @@ import scala.collection.JavaConversions._
  * @author Takami Torao
  */
 class ParasitizedBrowser extends Application {
+  import ParasitizedBrowser.logger
 
   locally {
     // 自己署名証明書を含む全てのサーバ証明書を無検証で信頼
@@ -43,7 +45,41 @@ class ParasitizedBrowser extends Application {
     )
     val sc = SSLContext.getInstance("SSL")
     sc.init(null, trustAllCerts, new SecureRandom())
-    HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory)
+    // かのサイト向けの SSL 通信を全て localhost:443 に向ける
+    val sf = new SSLSocketFactory {
+      val root = sc.getSocketFactory
+      override def getDefaultCipherSuites:Array[String] = root.getDefaultCipherSuites
+      override def getSupportedCipherSuites:Array[String] = root.getSupportedCipherSuites
+      override def createSocket(socket:Socket, hostname:String, port:Int, autoClose:Boolean):Socket = {
+        logger.debug(s"createSocket(socket, $hostname, $port, $autoClose)")
+        val scs = if(hostname == Context.RemoteHost && port == 443) {
+          socket.close()
+          new Socket("localhost", 443)
+        } else {
+          socket
+        }
+        root.createSocket(scs, hostname, port, autoClose)
+      }
+      override def createSocket(hostname:String, port:Int):Socket = {
+        logger.debug(s"createSocket($hostname, $port)")
+        if(hostname == Context.RemoteHost && port == 443) {
+          new Socket("localhost", 443)
+        } else {
+          new Socket(hostname, port)
+        }
+      }
+      override def createSocket(hostname:String, port:Int, local:InetAddress, localPort:Int): Socket = ???
+      override def createSocket(address:InetAddress, port:Int):Socket = {
+        logger.debug(s"createSocket($address, $port)")
+        if(address.getHostName == Context.RemoteHost && port == 443) {
+          new Socket("localhost", 443)
+        } else {
+          new Socket(address, port)
+        }
+      }
+      override def createSocket(address:InetAddress, port:Int, local:InetAddress, localPort:Int): Socket = ???
+    }
+    HttpsURLConnection.setDefaultSSLSocketFactory(sf)
   }
 
   // ==============================================================================================
