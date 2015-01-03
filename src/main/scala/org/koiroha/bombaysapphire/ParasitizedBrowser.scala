@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import org.w3c.dom.{Element, Node, NodeList}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ParasitizedBrowser
@@ -54,7 +55,7 @@ class ParasitizedBrowser extends Application {
         logger.debug(s"createSocket(socket, $hostname, $port, $autoClose)")
         val scs = if(hostname == Context.RemoteHost && port == 443) {
           socket.close()
-          new Socket("localhost", 443)
+          new Socket("localhost", 8443)
         } else {
           socket
         }
@@ -63,7 +64,7 @@ class ParasitizedBrowser extends Application {
       override def createSocket(hostname:String, port:Int):Socket = {
         logger.debug(s"createSocket($hostname, $port)")
         if(hostname == Context.RemoteHost && port == 443) {
-          new Socket("localhost", 443)
+          new Socket("localhost", 8443)
         } else {
           new Socket(hostname, port)
         }
@@ -72,7 +73,7 @@ class ParasitizedBrowser extends Application {
       override def createSocket(address:InetAddress, port:Int):Socket = {
         logger.debug(s"createSocket($address, $port)")
         if(address.getHostName == Context.RemoteHost && port == 443) {
-          new Socket("localhost", 443)
+          new Socket("localhost", 8443)
         } else {
           new Socket(address, port)
         }
@@ -136,28 +137,27 @@ object ParasitizedBrowser {
    * して行く。
    */
   private[ParasitizedBrowser] class Scenario(conf:Map[String,String], engine:WebEngine, view:WebView, primaryStage:Stage) {
-    private[this] var step = 0
+    private[this] var signedIn = false
 
     /** アカウント情報 */
     val account = conf("account")
     val password = conf("password")
 
     def next():Unit = if(engine.getLocation == s"https://${Context.RemoteHost}/intel") {
-      if (step == 0) {
+      if (! signedIn) {
         // Step1: <a>Sign In</a> をクリックする
         engine.getDocument.getElementsByTagName("a").toList.find { n => n.getTextContent == "Sign in"} match {
           case Some(a: Element) =>
             val url = a.getAttribute("href")
             engine.load(url)
-            logger.info(s"[Step${step+1}] First Page: $url")
-            step += 1
+            logger.info(s"初期ページ表示: $url")
           case _ =>
-            logger.error(s"[Step${step+1}] Sign-in button not found on start page")
+            logger.error(s"初期ページに Sign-in ボタンが見付かりません")
             primaryStage.close()
         }
       } else {
         // 各地点を表示する
-        loop(5000)
+        nextMapMove(5000)
       }
     } else if(engine.getLocation.matches("https://accounts\\.google\\.com/ServiceLogin\\?.*")) {
       // サインインを自動化
@@ -166,12 +166,12 @@ object ParasitizedBrowser {
 					|document.getElementById('Passwd').value='$password';
 					|document.getElementById('signIn').click();
 				""".stripMargin)
-      logger.info(s"[Step${step + 1}}] Sign-in: ${engine.getLocation}")
-      step += 1
+      logger.info(s"Sign-in 実行: ${engine.getLocation}")
+      signedIn = true
     } else if(engine.getLocation.startsWith(s"https://${Context.RemoteHost}/intel?")){
       None
     } else {
-      logger.info(s"[Step${step+1}] Unexpected Location: ${engine.getLocation}")
+      logger.info(s"予期しないページが表示されました: ${engine.getLocation}")
       primaryStage.close()
     }
 
@@ -180,11 +180,31 @@ object ParasitizedBrowser {
     /** 1kmあたりの緯度 */
     val latUnit = 360.0 / earthRound
     /** 1kmあたりの経度 */
-    def lngUnit(lng:Double):Double = latUnit * math.cos(lng / 360 * 2 * math.Pi)
+    def lngUnit(lat:Double):Double = latUnit * math.cos(lat / 360 * 2 * math.Pi)
     /** 1ステップの移動距離[km] */
     val distance = conf("distance").toDouble
     /** 次の地点を表示するまでの待機時間 [ミリ秒] */
     val waitInterval = conf("interval").toLong
+    /** 表示対象地点をあらかじめ算出してキュー化 */
+    val positions = locally {
+      val queue = new mutable.Queue[(Double,Double)]()
+      def next(lat:Double, lng:Double):Stream[(Double,Double)] = {
+        val n = if(lng + lngUnit(lat) * distance <= Context.Region.east){
+          (lat, lng + lngUnit(lat) * distance)
+        } else if(lat - latUnit * distance >= Context.Region.south){
+          (lat - latUnit * distance, Context.Region.west)
+        } else {
+          (Double.NaN, Double.NaN)
+        }
+        (lat, lng) #:: next(n._1, n._2)
+      }
+      val points = next(Context.Region.north, Context.Region.west)
+        .takeWhile{ ! _._1.isNaN }.filter{ p => Context.Region.contains(p._1, p._2) }
+      logger.info(f"${points.size}%,d 地点を探索しています")
+      queue.enqueue(points:_*)
+      queue
+    }
+    val maxPositions = positions.size
 
     // ============================================================================================
     // 表示位置移動ループ
@@ -192,30 +212,24 @@ object ParasitizedBrowser {
     /**
      * 指定時間後に指定された場所を表示。位置が south/east を超えたらウィンドウを閉じる。
      */
-    def loop(tm:Long, lat:Double = Context.Region.north, lng:Double = Context.Region.west):Unit = {
-      def _exec() = {
-        logger.debug(f"[Step${step+1}] stepping next location: ($lat%.6f/$lng%.6f)")
-        step += 1
-        // 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
-        engine.load(s"https://${Context.RemoteHost}/intel?ll=$lat,$lng&z=17")
-        // 次の位置へ移動するか終了ならウィンドウをクローズ
-        val nextLng = lng + lngUnit(lat) * distance
-        if(nextLng <= Context.Region.east){
-          loop(waitInterval, lat, nextLng)
-        } else {
-          val nextLat = lat - latUnit * distance
-          if(nextLat >= Context.Region.south){
-            loop(waitInterval, nextLat, Context.Region.west)
-          } else {
-            logger.debug(f"[Step${step+1}] finish")
-            primaryStage.close()
-          }
+    def nextMapMove(tm:Long):Unit = {
+      if(positions.isEmpty){
+        // 全ての地点を表示し終えていたらウィンドウをクローズ
+        logger.debug(f"全ての位置が表示されました")
+        primaryStage.close()
+      } else {
+        val (lat, lng) = positions.dequeue()
+        def _exec() = {
+          logger.info(f"[${positions.size}%,d/$maxPositions%,d] 位置を表示しています: ($lat%.6f/$lng%.6f)")
+          // 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
+          engine.load(s"https://${Context.RemoteHost}/intel?ll=$lat,$lng&z=17")
+          nextMapMove(waitInterval)
         }
-      }
-      Batch.runAfter(tm){
-        Platform.runLater(new Runnable {
-          override def run() = _exec()
-        })
+        Batch.runAfter(tm){
+          Platform.runLater(new Runnable {
+            override def run() = _exec()
+          })
+        }
       }
     }
   }

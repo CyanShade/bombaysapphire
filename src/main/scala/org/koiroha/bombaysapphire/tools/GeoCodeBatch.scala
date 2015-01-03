@@ -105,27 +105,24 @@ object GeoCodeBatch {
 		val (updated, skipped, _) = Context.Database.withSession { implicit session =>
 			Tables.Portals
 				.filter {_.geohash.isEmpty}
+				.sortBy{ _.createdAt desc}
 				.map { p => (p.id, p.late6, p.lnge6) }.run
 		}.foldLeft((0, 0, false)) { case ((count, skip, error), (id, latE6, lngE6)) =>
-			if(error){
-				(count, skip, true)
-			} else {
-				val future = GeoCode.getLocation(latE6 / 1e6, lngE6 / 1e6)
-				Try{ Await.result(future, Duration.Inf) } match {
-					case Success(Some(location)) =>
-						Context.Database.withSession { implicit s =>
-							Tables.Portals.filter {_.id === id}.map { p => (p.geohash, p.updatedAt)}
-								.update(Some(location.geoHash), new Timestamp(System.currentTimeMillis()))
-							logger.info(s"update portal location: [$id] ${location.country} ${location.state} ${location.city}")
-						}
-						(count + 1, skip, false)
-					case Success(None) =>
-						logger.info(s"outside portal location: [$id]")
-						(count, skip, false)
-					case Failure(ex) =>
-						logger.error(ex.toString)
-						(count, skip + 1, true)
-				}
+			val future = GeoCode.getLocation(latE6 / 1e6, lngE6 / 1e6)
+			Try{ Await.result(future, Duration.Inf) } match {
+				case Success(Some(location)) =>
+					Context.Database.withSession { implicit s =>
+						Tables.Portals.filter {_.id === id}.map { p => (p.geohash, p.updatedAt)}
+							.update(Some(location.geoHash), new Timestamp(System.currentTimeMillis()))
+						logger.info(s"update portal location: [$id] ${location.country} ${location.state} ${location.city}")
+					}
+					(count + 1, skip, error)
+				case Success(None) =>
+					logger.info(s"outside portal location: [$id]")
+					(count, skip, error)
+				case Failure(ex) =>
+					logger.error(ex.toString)
+					(count, skip + 1, true)
 			}
 		}
 		logger.info(s"$updated 個の位置情報を取得し $skipped 個をスキップしました")

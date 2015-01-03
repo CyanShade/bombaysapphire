@@ -71,16 +71,25 @@ $(function(){
 			table.append($("<tr/>")
 				.append($("<td>").attr("style","text-align:right;").text(this["id"]))
 				.append($("<td>")
-					.append($("<img/>").attr("src", this["image"]).attr("style","height:64px;float:right;"))
-					.append(" ")
+					.append($("<img/>")
+						.attr("src", this["image"])
+						.attr("style","height:64px;float:right;")
+						.attr("title", this["title"])
+						.attr("alt", this["title"])
+					)
 					.append($("<h4/>").append(this["title"]))
 					.append($("<p/>")
+						.append(this["city"] + ", " + this["state"] + ", " + this["country"])
+						.append(" ")
 						.append($("<a/>")
 							.attr("href", "https://" + RemoteHost + "/intel?ll=" + this["latlng"][0] + "," + this["latlng"][1] + "&z=17")
 							.attr("target", "intel")
 							.text(this["latlng"][0] + "/" + this["latlng"][1])
 						)
-						.append(this["country"] + this["state"] + this["city"])
+						.append($("<span/>")
+							.attr("style", "font-size:0px;")	// コピペ時に現れる隠しテキストとして
+							.text(" https://" + RemoteHost + "/intel?ll=" + this["latlng"][0] + "," + this["latlng"][1] + "&z=17")
+						)
 					)
 				)
 			)
@@ -91,7 +100,7 @@ $(function(){
 	 * 検索ボタンが押された時のアクション。
 	*/
 	$("#search").click(function(){
-		var query = $("#search_form").serialize();
+		var query = $("#search_form").serialize() + "&cll=" + latitude + "," + longitude;
 		$.getJSON("/portal/locations?" + query, function(json){
 			list(json);
 			var latlng = [ ];
@@ -101,5 +110,41 @@ $(function(){
 			draw(latlng);
 		});
 	});
+
+	/**
+	 * geolocation を使用した位置情報の取得。
+	*/
+	var latitude = NaN;
+	var longitude = NaN;
+	if(navigator.geolocation){
+		function success(position){
+			latitude = position.coords.latitude;
+			longitude = position.coords.longitude;
+			var location = $("#current_location");
+			var goecode = "http://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=false";
+			var mapurl = "https://" + RemoteHost + "/intel?ll=" + latitude + "," + longitude + "&z=17";
+			location.empty().append($("<a/>")
+				.attr("href", mapurl)
+        .attr("target", "intel")
+				.append(latitude + "/" + longitude)
+			);
+			$.getJSON(goecode, function(json){
+				if(json["status"] == "OK"){
+					location.empty().append($("<a/>")
+            .attr("href", mapurl)
+            .attr("target", "intel")
+            .attr("title", latitude + "/" + longitude)
+            .append(json["results"][0]["formatted_address"])
+          );
+				} else {
+					location.append($("<span/>")
+						.attr("class", "glyphicon glyphicon-exclamation-sign").attr("aria-hidden", "true")
+						.attr("title", json["status"] + ": " + json["error_message"])
+					);
+				}
+			});
+		}
+		navigator.geolocation.getCurrentPosition(success);
+	}
 
 })

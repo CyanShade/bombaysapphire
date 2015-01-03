@@ -12,7 +12,11 @@
     <appender-ref ref="console"/>
   </logger>
   <!--
-  <logger name="scala.slick" additivity="false">
+  <logger name="scala.slick.jdbc.JdbcBackend.statement" additivity="false">
+    <level value="debug"/>
+    <appender-ref ref="console"/>
+  </logger>
+  <logger name="scala.slick.jdbc.JdbcBackend.benchmark" additivity="false">
     <level value="debug"/>
     <appender-ref ref="console"/>
   </logger>

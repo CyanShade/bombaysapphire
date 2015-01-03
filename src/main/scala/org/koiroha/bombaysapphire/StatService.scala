@@ -66,10 +66,19 @@ class StatService extends Service[HttpRequest,HttpResponse] {
 							case "country" => table.filter { case (p, g) => g.country === value}
 							case "state" => table.filter { case (p, g) => g.state === value}
 							case "city" => table.filter { case (p, g) => g.city === value}
+							case "cll" =>
+								val Array(clat, clng) = value.split(",", 2).map{ l => Try(l.toDouble).toOption.getOrElse(Double.NaN) }
+								if(! clat.isNaN && ! clng.isNaN){
+									table.sortBy { case (p, g) =>
+										(p.late6.asColumnOf[Double]/1e6 - clat) * (p.late6.asColumnOf[Double]/1e6 - clat) +
+											(p.lnge6.asColumnOf[Double]/1e6 - clng) * (p.lnge6.asColumnOf[Double]/1e6 - clng) }
+								} else table
 							case unknown => throw BadRequest(s"unknown parameter: $unknown=$value")
 						}
-					}.map { case (p, g) => (p.id, p.title, p.image, p.late6, p.lnge6, p.createdAt, g.country.?, g.state.?, g.city.?)
-					}.run.map { case (id, title, image, lat, lng, createdAt, country, state, city) =>
+					}
+						//.sortBy { case (p, g) => (g.country, g.state, g.city) }
+						.map { case (p, g) => (p.id, p.title, p.image, p.late6, p.lnge6, p.createdAt, g.country.?, g.state.?, g.city.?)}
+						.run.map { case (id, title, image, lat, lng, createdAt, country, state, city) =>
 						("id" -> id) ~
 							("title" -> title) ~
 							("image" -> image) ~
@@ -93,6 +102,7 @@ class StatService extends Service[HttpRequest,HttpResponse] {
 						val ct = if(path.endsWith(".html")) "text/html"
 						else if(path.endsWith(".png")) "image/png"
 						else if(path.endsWith(".css")) "text/css"
+						else if(path.endsWith(".js")) "application/javascript"
 						else "application/octet-stream"
 						respond(200, binary, ct)
 					case None =>
