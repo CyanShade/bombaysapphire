@@ -198,15 +198,6 @@ class BotBrowser extends Application {
 
     private[this] val maxPositions = positions.size
 
-    /** 収集対象の tile_key とその代表座標 */
-    val tilekeys:Map[String,(Double,Double)] = Context.Database.withSession { implicit _s =>
-      import scala.slick.jdbc.StaticQuery.interpolation
-      sql"select tile_key,max(late6),min(late6),max(lnge6),min(lnge6) from intel.portals group by tile_key"
-        .as[(String,Int,Int,Int,Int)].list.map { case (tileKey, lat0, lat1, lng0, lng1) =>
-        tileKey -> ((lat0 + lat1) / 2.0 / 1e6, (lng0 + lng1) / 2.0 / 1e6)
-      }.toMap
-    }
-
     def next():Unit = if(engine.getLocation == s"https://${Context.RemoteHost}/intel") {
       if (! signedIn) {
         // Step1: <a>Sign In</a> をクリックする
