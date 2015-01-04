@@ -7,6 +7,10 @@ version := "1.0.0-SNAPSHOT"
 
 scalaVersion := "2.11.4"
 
+scalacOptions ++= Seq("-unchecked", "-feature", "-deprecation", "-encoding", "UTF-8")
+
+javacOptions ++= Seq("-encoding", "UTF-8")
+
 libraryDependencies ++= Seq(
   "com.twitter" %% "finagle-http" % "6.24.0",
   "com.typesafe.akka" %% "akka-remote" % "2.3.8",
