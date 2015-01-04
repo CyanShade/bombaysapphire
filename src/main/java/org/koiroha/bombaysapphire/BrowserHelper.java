@@ -10,14 +10,16 @@ import java.util.function.Consumer;
 
 public class BrowserHelper {
     public static void init(WebEngine engine, Consumer<WebEngine> succeeder){
-        Logger logger = ParasitizedBrowser$.MODULE$.logger();
+        Logger logger = BotBrowser$.MODULE$.logger();
         engine.getLoadWorker().stateProperty().addListener(new ChangeListener<Worker.State>(){
             @Override
             public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldValue, Worker.State newValue) {
                 logger.debug("[" + newValue + "] " + engine.getLocation());
                 if(newValue == Worker.State.SUCCEEDED){
                     succeeder.accept(engine);
-                }
+                }/* else if(newValue == Worker.State.FAILED){
+                    // TODO 表示に失敗したときの処理
+                }*/
             }
         });
         engine.setConfirmHandler((param) -> {

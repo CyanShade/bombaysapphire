@@ -5,16 +5,18 @@
 */
 package org.koiroha.bombaysapphire
 
-import java.net.{URI, URLDecoder}
+import java.net.{InetSocketAddress, URI, URLDecoder}
 import java.sql.Timestamp
 import java.text.{DateFormat, SimpleDateFormat}
 
 import com.twitter.finagle.Service
+import com.twitter.finagle.builder.ServerBuilder
 import com.twitter.util.Future
 import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
+import org.koiroha.bombaysapphire.ProxyServer._
 import org.slf4j.LoggerFactory
 
 import scala.slick.driver.PostgresDriver.simple._
@@ -27,10 +29,9 @@ import scala.util.Try
  * ProxyServer からバイパスして特定の URL に対して統計情報を出力。
  * @author Takami Torao
  */
-class StatService extends Service[HttpRequest,HttpResponse] {
+class AdminServer extends Service[HttpRequest,HttpResponse] {
 	import org.koiroha.bombaysapphire.schema.Tables._
-
-	private[this] val logger = LoggerFactory.getLogger(classOf[StatService])
+	import AdminServer.logger
 
 	def apply(request:HttpRequest):Future[HttpResponse] = try {
 		val uri = URI.create(request.getUri)
@@ -159,4 +160,15 @@ class StatService extends Service[HttpRequest,HttpResponse] {
 		df.format(value)
 	}
 
+}
+
+object AdminServer extends App{
+	private[AdminServer] val logger = LoggerFactory.getLogger(classOf[AdminServer])
+
+	logger.info(s"starting bombay-sapphire administration server on port 8080")
+	ServerBuilder()
+		.codec(com.twitter.finagle.http.Http())
+		.bindTo(new InetSocketAddress(8080))
+		.name("bombay-sapphire-stat")
+		.build(new AdminServer)
 }

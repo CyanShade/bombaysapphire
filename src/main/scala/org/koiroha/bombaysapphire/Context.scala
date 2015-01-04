@@ -92,11 +92,15 @@ object Context {
 		val east:Double
 		val west:Double
 		def contains(lat:Double, lng:Double):Boolean
+		def overlap(lat0:Double, lng0:Double, lat1:Double, lng1:Double):Boolean
 	}
 
 	case class _RectRegion(override val north:Double, override val south:Double, override val east:Double, override val west:Double) extends _Region {
 		override def contains(lat:Double, lng:Double):Boolean = {
 			lat >= south && lat <= north && lng >= west && lng <= east
+		}
+		def overlap(lat0:Double, lng0:Double, lat1:Double, lng1:Double):Boolean = {
+			! (math.max(lat0, lat1) < south) && ! (math.min(lat0, lat1) > north) && ! (math.max(lng0, lng1) < west) && ! (math.min(lng0, lng1) > east)
 		}
 	}
 
@@ -113,6 +117,23 @@ object Context {
 		val (south, west) = poly.reduceLeft{ (l0, l1) => (math.min(l0._1, l1._1), math.min(l0._2, l1._2)) }
 		def contains(lat:Double, lng:Double):Boolean = Context.Database.withSession{ implicit session =>
 			sql"select count(*) from intel.heuristic_regions where id in (#${ids.mkString(",")}) and point '(#$lat,#$lng)' @ region".as[Int].first > 0
+		}
+		def overlap(lat0:Double, lng0:Double, lat1:Double, lng1:Double):Boolean = Context.Database.withSession{ implicit session =>
+			sql"select region from intel.heuristic_regions where id in (#${ids.mkString(",")})".as[String].list.exists{ region =>
+				// ((35.8621266562630865,138.9286328167926),...)
+				if(region.startsWith("((") && region.endsWith("))")){
+					region.substring(2, region.length - 2).split("\\)\\s*,\\s*\\(")
+						.map{ _.split("\\s*,\\s*") }.map{ case Array(lat,lng) => lat.toDouble -> lng.toDouble }
+						.map{ case (lat,lng) => ((lat * 1e6).toInt, (lng * 1e6).toInt) }
+						.foldLeft(new java.awt.Polygon()){ case (polygon, (lat, lng)) =>
+							polygon.addPoint(lat, lng)
+							polygon
+						}.intersects((lat0*1e6).toInt, (lng0*1e6).toInt, (lat1*1e6).toInt, (lng1*1e6).toInt)
+				} else {
+					logger.warn(s"unexpected polygon format: $region")
+					false
+				}
+			}
 		}
 	}
 

@@ -13,11 +13,14 @@ import org.json4s.JsonAST.JNull
 import org.json4s.native.JsonMethods._
 import org.json4s.{DefaultFormats, JObject, JValue}
 import org.koiroha.bombaysapphire.Entities.Portal
+import org.koiroha.bombaysapphire.GeoCode.Location
 import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.Future
 import scala.slick.driver.PostgresDriver.simple._
 import scala.slick.jdbc.StaticQuery.interpolation
+import scala.util.{Failure, Success}
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ParserActor
@@ -176,15 +179,25 @@ class ParserActor extends Actor with ActorLogging {
 				if(p.tileKey != regionId){
 					record.map{ x => (x.tileKey,x.updatedAt) }.update((regionId,tm))
 				}
+				// 存在確認日時を設定
+				Tables.Portals.filter{ _.id === p.id}.map{ _.verifiedAt }.update(tm)
 				false
 			case None =>
+				import scala.concurrent.ExecutionContext.Implicits.global
 				// 有効範囲のものだけ新規ポータルとして追加
 				if(GeoCode.available(cp.latE6/1e6, cp.lngE6/1e6)){
 					Tables.Portals.map{ x =>
 						(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
 					}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
-					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6)
-					logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
+					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6).onComplete{
+						case Success(Some(l)) =>
+							logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${l.city}, ${l.state}, ${l.country}")
+						case Success(None) =>
+							logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; (住所不明)")
+						case Failure(ex) =>
+							logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
+							logger.error(s"住所の取得に失敗しました", ex)
+					}
 					true
 				} else false
 		}
@@ -205,17 +218,16 @@ class ParserActor extends Actor with ActorLogging {
 	/**
 	 * 緯度/経度に対して最も近い定義済み GeoHash を参照。
 	 */
-	private[this] def setGeoHashAsync(guid:String, latE6:Int, lngE6:Int):Unit = {
+	private[this] def setGeoHashAsync(guid:String, latE6:Int, lngE6:Int):Future[Option[Location]] = {
 		import scala.concurrent.ExecutionContext.Implicits.global
 		// 行政区情報は API を使用するため非同期で設定
-		GeoCode.getLocation(latE6/1e6, lngE6/1e6).onSuccess {
-			case Some(location) =>
+		GeoCode.getLocation(latE6/1e6, lngE6/1e6).andThen {
+			case Success(Some(location)) =>
 				Context.Database.withSession { implicit session =>
 					Tables.Portals
 						.filter{ _.guid === guid }.map{ x => (x.geohash, x.updatedAt) }
 						.update((Some(location.geoHash), new Timestamp(System.currentTimeMillis())))
 				}
-			case None => None
 		}
 	}
 }

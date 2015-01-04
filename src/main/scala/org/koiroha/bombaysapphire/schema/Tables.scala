@@ -14,7 +14,27 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  
+  /** Entity class storing rows of table _Temp
+   *  @param r Database column r DBType(polygon), Length(2147483647,false) */
+  case class _TempRow(r: String)
+  /** GetResult implicit for fetching _TempRow objects using plain SQL queries */
+  implicit def GetResult_TempRow(implicit e0: GR[String]): GR[_TempRow] = GR{
+    prs => import prs._
+    _TempRow(<<[String])
+  }
+  /** Table description of table _temp. Objects of this class serve as prototypes for rows in queries. */
+  class _Temp(_tableTag: Tag) extends Table[_TempRow](_tableTag, "_temp") {
+    def * = r <> (_TempRow, _TempRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = r.?.shaped.<>(r => r.map(_=> _TempRow(r.get)), (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column r DBType(polygon), Length(2147483647,false) */
+    val r: Column[String] = column[String]("r", O.Length(2147483647,varying=false))
+  }
+  /** Collection-like TableQuery object for table _Temp */
+  lazy val _Temp = new TableQuery(tag => new _Temp(tag))
   
   /** Entity class storing rows of table Agents
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
@@ -128,6 +148,9 @@ trait Tables {
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
     /** Database column updated_at DBType(timestamp) */
     val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
+    
+    /** Uniqueness Index over (country,state,city,seq,side) (database name heuristic_regions_country_state_city_seq_side_key) */
+    val index1 = index("heuristic_regions_country_state_city_seq_side_key", (country, state, city, seq, side), unique=true)
   }
   /** Collection-like TableQuery object for table HeuristicRegions */
   lazy val HeuristicRegions = new TableQuery(tag => new HeuristicRegions(tag))
@@ -178,18 +201,19 @@ trait Tables {
    *  @param createdAt Database column created_at DBType(timestamp)
    *  @param updatedAt Database column updated_at DBType(timestamp)
    *  @param deletedAt Database column deleted_at DBType(timestamp), Default(None)
-   *  @param geohash Database column geohash DBType(bpchar), Length(10,false), Default(None) */
-  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None, geohash: Option[String] = None)
+   *  @param geohash Database column geohash DBType(bpchar), Length(10,false), Default(None)
+   *  @param verifiedAt Database column verified_at DBType(timestamp) */
+  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None, geohash: Option[String] = None, verifiedAt: java.sql.Timestamp)
   /** GetResult implicit for fetching PortalsRow objects using plain SQL queries */
   implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[java.sql.Timestamp], e3: GR[Option[java.sql.Timestamp]], e4: GR[Option[String]]): GR[PortalsRow] = GR{
     prs => import prs._
-    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp], <<?[String]))
+    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp], <<?[String], <<[java.sql.Timestamp]))
   }
   /** Table description of table portals. Objects of this class serve as prototypes for rows in queries. */
   class Portals(_tableTag: Tag) extends Table[PortalsRow](_tableTag, Some("intel"), "portals") {
-    def * = (id, guid, tileKey, late6, lnge6, title, image, createdAt, updatedAt, deletedAt, geohash) <> (PortalsRow.tupled, PortalsRow.unapply)
+    def * = (id, guid, tileKey, late6, lnge6, title, image, createdAt, updatedAt, deletedAt, geohash, verifiedAt) <> (PortalsRow.tupled, PortalsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, createdAt.?, updatedAt.?, deletedAt, geohash).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, createdAt.?, updatedAt.?, deletedAt, geohash, verifiedAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -213,6 +237,8 @@ trait Tables {
     val deletedAt: Column[Option[java.sql.Timestamp]] = column[Option[java.sql.Timestamp]]("deleted_at", O.Default(None))
     /** Database column geohash DBType(bpchar), Length(10,false), Default(None) */
     val geohash: Column[Option[String]] = column[Option[String]]("geohash", O.Length(10,varying=false), O.Default(None))
+    /** Database column verified_at DBType(timestamp) */
+    val verifiedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("verified_at")
     
     /** Foreign key referencing Geohash (database name portals_geohash_fkey) */
     lazy val geohashFk = foreignKey("portals_geohash_fkey", geohash, Geohash)(r => r.geohash, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.SetNull)
