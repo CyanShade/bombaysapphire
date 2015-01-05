@@ -45,14 +45,14 @@ create table intel.portals(
   title varchar not null,
   image varchar not null,
   created_at timestamp not null default current_timestamp,
-  verified_at timestamp not null default current_timestamp
+  verified_at timestamp not null default current_timestamp,
   updated_at timestamp not null default current_timestamp,
   deleted_at timestamp null
 ) with(oids=false);
 
-create unique index portal_idx00 on intel.portals(guid)
-create unique index portal_idx01 on intel.portals(tile_key)
-create unique index portal_idx02 on intel.portals(created_at)
+create unique index portal_idx00 on intel.portals(guid);
+create unique index portal_idx01 on intel.portals(tile_key);
+create unique index portal_idx02 on intel.portals(created_at);
 
 create table intel.agents(
   id serial not null primary key,
