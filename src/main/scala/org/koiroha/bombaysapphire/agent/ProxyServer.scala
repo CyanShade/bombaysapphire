@@ -3,7 +3,7 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire
+package org.koiroha.bombaysapphire.agent
 
 import java.net.InetSocketAddress
 import java.sql.SQLException
@@ -17,6 +17,7 @@ import com.typesafe.config.ConfigFactory
 import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.handler.codec.http._
 import org.json4s.JObject
+import org.koiroha.bombaysapphire.{Context, Entities, ParseTask}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
@@ -35,7 +36,7 @@ import scala.slick.jdbc.StaticQuery.interpolation
  * @author Takami Torao
  */
 class ProxyServer {
-  import org.koiroha.bombaysapphire.ProxyServer._
+  import org.koiroha.bombaysapphire.agent.ProxyServer._
 
   private[this] val system = ActorSystem("bombaysapphire", ConfigFactory.load("proxy.conf"))
   private[this] val worker = system.actorSelection("akka.tcp://bombaysapphire@localhost:2552/user/parser")

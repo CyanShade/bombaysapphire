@@ -24,6 +24,31 @@ $(function(){
 	}
 	var RemoteHost = decode("ttt+fkdobpp+`lj");
 
+	/**
+	 * 現在時刻からの相対時間に変換。
+	*/
+	function relativeDateTime(dt){
+		alert(dt);
+		var sec = (new Date().getTime() - dt.getTime()) / 1000;
+		if(sec < 5)	return "今";
+		if(sec < 60)	return (Math.floor(sec/5)*5) + "秒前";
+		if(sec < 60 * 60)	return Math.floor(sec/60) + "分前";
+		if(sec < 24 * 60 * 60)	return Math.floor(sec/60/60) + "時間前";
+		return Math.floor(sec/24/60/60) + "日前";
+	}
+
+	/**
+	*/
+	function stringToDate(str){
+		str.match(/(\d+)\/(\d+)\/(\d+) (\d+):(\d+)/);
+		var year = parseInt(RegExp.$1);
+		var month = parseInt(RegExp.$2);
+		var date = parseInt(RegExp.$3);
+		var hour = parseInt(RegExp.$4);
+		var minute = parseInt(RegExp.$5);
+		return new Date(year, month - 1, date, hour, minute);
+	}
+
   /**
    * ポータルのプロット。
   */
@@ -79,16 +104,19 @@ $(function(){
 					)
 					.append($("<h4/>").append(this["title"]))
 					.append($("<p/>")
-						.append(this["city"] + ", " + this["state"] + ", " + this["country"])
-						.append(" ")
 						.append($("<a/>")
 							.attr("href", "https://" + RemoteHost + "/intel?ll=" + this["latlng"][0] + "," + this["latlng"][1] + "&z=17")
 							.attr("target", "intel")
-							.text(this["latlng"][0] + "/" + this["latlng"][1])
+							.attr("title", this["latlng"][0] + "/" + this["latlng"][1])
+							.text(this["city"] + ", " + this["state"] + ", " + this["country"])
 						)
 						.append($("<span/>")
 							.attr("style", "font-size:0px;")	// コピペ時に現れる隠しテキストとして
 							.text(" https://" + RemoteHost + "/intel?ll=" + this["latlng"][0] + "," + this["latlng"][1] + "&z=17")
+						)
+						.append($("<span/>")
+							.attr("title", this["created_at"])
+							.text(" " + relativeDateTime(stringToDate(this["created_at"])))
 						)
 					)
 				)

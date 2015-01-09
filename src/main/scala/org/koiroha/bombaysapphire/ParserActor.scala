@@ -82,6 +82,9 @@ class ParserActor extends Actor with ActorLogging {
 						savePortalDetail(tm, pd, request)
 						pd
 					}
+					case "artifacts" =>
+						logger.debug("ignore artifacts information")
+						json.asInstanceOf[JObject].values.get("result")
 					case _ =>
 						logger.warn(s"unexpected method: $method; $content")
 						json.asInstanceOf[JObject].values.get("result")

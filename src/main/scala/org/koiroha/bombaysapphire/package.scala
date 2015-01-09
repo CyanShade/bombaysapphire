@@ -14,3 +14,8 @@ package object io {
 		r.close()
 	}
 }
+
+package object util {
+
+	case class Size(width:Int, height:Int)
+}

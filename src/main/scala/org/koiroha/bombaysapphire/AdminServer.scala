@@ -16,7 +16,8 @@ import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
-import org.koiroha.bombaysapphire.ProxyServer._
+import org.koiroha.bombaysapphire.agent.ProxyServer
+import ProxyServer._
 import org.slf4j.LoggerFactory
 
 import scala.slick.driver.PostgresDriver.simple._

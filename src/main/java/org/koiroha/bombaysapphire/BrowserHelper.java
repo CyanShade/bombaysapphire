@@ -4,13 +4,14 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
 import javafx.scene.web.WebEngine;
+import org.koiroha.bombaysapphire.agent.Sentinel$;
 import org.slf4j.Logger;
 
 import java.util.function.Consumer;
 
 public class BrowserHelper {
     public static void init(WebEngine engine, Consumer<WebEngine> succeeder){
-        Logger logger = BotBrowser$.MODULE$.logger();
+        Logger logger = Sentinel$.MODULE$.logger();
         engine.getLoadWorker().stateProperty().addListener(new ChangeListener<Worker.State>(){
             @Override
             public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldValue, Worker.State newValue) {
