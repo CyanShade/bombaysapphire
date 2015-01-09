@@ -9,7 +9,7 @@ import java.sql.Timestamp
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.koiroha.bombaysapphire.schema.Tables
-import org.koiroha.bombaysapphire.{Batch, Context, GeoCode}
+import org.koiroha.bombaysapphire.{Batch, GeoCode}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await

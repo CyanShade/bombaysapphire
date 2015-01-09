@@ -7,8 +7,6 @@ package org.koiroha.bombaysapphire.tools
 
 import java.io.{File, FileInputStream, InputStream}
 import java.util.zip.ZipFile
-
-import org.koiroha.bombaysapphire.Context
 import org.koiroha.bombaysapphire.io.using
 import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory

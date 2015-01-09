@@ -1,7 +1,5 @@
 package org.koiroha.bombaysapphire.tools
 
-import org.koiroha.bombaysapphire.Context
-
 import scala.slick.codegen.SourceCodeGenerator
 
 object Schema {
