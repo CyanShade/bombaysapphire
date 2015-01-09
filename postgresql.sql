@@ -27,7 +27,7 @@ COMMENT ON COLUMN intel.heuristic_regions.side IS '内側の場合 I, 外側の�
 COMMENT ON COLUMN intel.heuristic_regions.seq  IS '同一の行政区内で複数の多角形に分かれる場合の枝番';
 
 create table intel.logs(
-  id serial not null primary key,
+  id bigserial not null primary key,
   method varchar not null,
   content jsonb not null,
   request varchar not null,
