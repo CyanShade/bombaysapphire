@@ -3,15 +3,16 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire
+package org.koiroha.bombaysapphire.garuda
 
-import org.json4s.native.JsonMethods._
 import org.json4s._
-import org.koiroha.bombaysapphire.Entities._
-import org.koiroha.bombaysapphire.Implicit._
-import org.koiroha.bombaysapphire.PortalDetails.{Mod, Resonator}
-import org.koiroha.bombaysapphire.RegionScoreDetails._
+import org.json4s.native.JsonMethods._
+import org.koiroha.bombaysapphire.garuda.Entities.MapRegion
+import org.koiroha.bombaysapphire.garuda.PortalDetails.{Mod, Resonator}
+import org.koiroha.bombaysapphire.garuda.RegionScoreDetails.{ScoreHistory, TopAgent}
 import org.slf4j.LoggerFactory
+
+import Implicit._
 
 /**
  * Enlightened, Resistance (あるいは Neutral) を表す定数。DB 保存用にそれぞれ識別文字を持っている。
@@ -23,6 +24,9 @@ object Team {
 		case "enlightened" => Some(Enlightened)
 		case "resistance" => Some(Resistance)
 		case "neutral" => Some(Neutral)
+		case "e" => Some(Enlightened)
+		case "r" => Some(Resistance)
+		case "n" => Some(Neutral)
 		case _ =>
 			logger.warn(s"unknown team name detected: '$name'")
 			None
@@ -35,8 +39,18 @@ case object Neutral extends Team('N')
 // getGameScore
 case class GameScore(enlightened:Int, resistance:Int)
 object GameScore {
+	private[this] val logger = LoggerFactory.getLogger(classOf[GameScore])
 	private[this] implicit val formats = DefaultFormats
-	def apply(value:JValue):Option[GameScore] = value transformOpt Some(GameScore(value(0).toInt, value(1).toInt))
+	/** @param value getGameScore/result または getRegionScoreDetals/result/gameScore */
+	def apply(value:JValue):Option[GameScore] = {
+		logger.trace(s"GameScore(${value.toCompact})")
+		if(value == JNothing) {
+			logger.warn(s"invalid GameScore result: $value")
+			None
+		} else {
+			value transformOpt Some(GameScore(value(0).toInt, value(1).toInt))
+		}
+	}
 }
 
 /**
@@ -77,6 +91,11 @@ object RegionScoreDetails {
 
 	def apply(value:JValue):Option[RegionScoreDetails] = value transformOpt {
 		val gameScore = GameScore(value \ "result" \ "gameScore")
+		if(gameScore.isEmpty){
+			logger.warn(s"${value.toCompact}")
+			logger.warn(s"result: ${(value \ "result").toCompact}")
+			logger.warn(s"result/gameScore: ${(value \ "result" \ "gameScore").toCompact}")
+		}
 		val scoreHistory = (value \ "result" \ "scoreHistory").toList.map{ x => ScoreHistory(x:JValue) }
 		val topAgents = (value \ "result" \ "topAgents").toList.map{ x => TopAgent(x:JValue) }
 		val timeToEndOfBaseCycleMs = (value \ "result" \ "timeToEndOfBaseCycleMs").extractOpt[Double]
@@ -117,41 +136,48 @@ object Entities {
 	case class Portal(guid:String, unknown:Double, latE6:Int, health:Int, image:String, resCount:Int, lngE6:Int, team:Team, title:String, ornaments:Seq[String], level:Int) extends GameEntity(guid, unknown, "portal")
 	object Portal {
 		private[this] val logger = LoggerFactory.getLogger(classOf[Portal])
-		def apply(guid:String, unknown:Double, value:JValue):Portal = value transform {
-			val latE6 = (value(2) \ "latE6").toInt
-			val health = (value(2) \ "health").toInt
-			val image = (value(2) \ "image").extractOpt[String].get
-			val resCount = (value(2) \ "resCount").toInt
-			val lngE6 = (value(2) \ "lngE6").toInt
-			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
-			val title = (value(2) \ "title").extractOpt[String].get
-			val ornaments = (value(2) \ "ornaments").toList.map{ _.extractOpt[String].get }
-			val level = (value(2) \ "level").toInt
+		/**
+		 * ["p","R",35667625,139444531,6,100.0,8,"http://lh3.ggph...","四谷緑道",[]]
+		 */
+		def apply(guid:String, unknown:Double, value:List[JValue]):Portal = {
+			val team = value(1).extract[String] match { case "R" => Resistance; case "E" => Enlightened; case "N" => Neutral }
+			val latE6 = value(2).toInt
+			val lngE6 = value(3).toInt
+			val level = value(4).toInt
+			val health = value(5).toInt
+			val resCount = value(6).toInt
+			val image = value(7).extractOpt[String].get
+			val title = value(8).extractOpt[String].get
+			val ornaments = value(9).toList.map{ _.extractOpt[String].get }
 			Portal(guid, unknown, latE6, health, image, resCount, lngE6, team, title, ornaments, level)
 		}
 	}
 	case class Region(guid:String, unknown:Double, points:Seq[Point], team:Team) extends GameEntity(guid, unknown, "region")
 	object Region {
-		def apply(guid:String, unknown:Double, value:JValue):Region = value transform {
-			val points = (value(2) \ "points").toList.map{ x => Point(x:JValue) }
-			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
+		/*
+		 * ["r","R",[
+		 *   ["59297dd6018843239e6ade650bd06302.16",35655301,139479862],
+		 *   ["c7291ff655a9454aae2a60f82ba790b2.16",35654762,139477551],
+		 *   ["ffc88d3c9af94690bc75ce40ee45eb18.16",35655186,139477885]
+		 * ]]
+		 */
+		def apply(guid:String, unknown:Double, value:List[JValue]):Region = {
+			val team = value(1).extractOpt[String].flatMap{ Team.apply }.get
+			val points = value(2).toList.map{ _.toList }.map{ x =>
+				Point(x(0).extractOpt[String].get, x(1).toInt, x(2).toInt)
+			}
 			Region(guid, unknown, points, team)
 		}
 	}
 	case class Edge(guid:String, unknown:Double, dest:Point, org:Point, team:Team) extends GameEntity(guid, unknown, "edge")
 	object Edge {
-		def apply(guid:String, unknown:Double, value:JValue):Edge = value transform {
-			val dest = Point(value.transformField{
-				case ("dGuid",v) => ("guid",v)
-				case ("dLatE6",v) => ("latE6",v)
-				case ("dLngE6",v) => ("lngE6",v)
-			})
-			val org = Point(value.transformField{
-				case ("oGuid",v) => ("guid",v)
-				case ("oLatE6",v) => ("latE6",v)
-				case ("oLngE6",v) => ("lngE6",v)
-			})
-			val team = (value(2) \ "team").extractOpt[String].flatMap{ Team.apply }.get
+		/*
+		 * ["e","R","e04009033afa429484b2e37df099243d.16",35659229,139457394,"70c95b25c1484cd0ae80cff45837af23.11",35659808,139457947]
+		 */
+		def apply(guid:String, unknown:Double, value:List[JValue]):Edge = {
+			val team = value(1).extractOpt[String].flatMap{ Team.apply }.get
+			val dest = Point(value(2).extractOpt[String].get, value(3).toInt, value(4).toInt)
+			val org = Point(value(5).extractOpt[String].get, value(6).toInt, value(7).toInt)
 			Edge(guid, unknown, dest, org, team)
 		}
 	}
@@ -172,13 +198,31 @@ object Entities {
 					MapRegion(Nil, Nil, Some(error))
 				case None =>
 					val deletedGameEntityGuids = (regionInfo \ "deletedGameEntityGuids").toList.flatMap{ _.extractOpt[String] }
+					/* 2015-01-10 フォーマット変更
+					 * "gameEntities":[
+					 *   ["cee3af8132404c7bba4f77fc5bee7bdc.16",1420860950519,
+					 *     ["p","R",35667625,139444531,6,100.0,8,"http://lh3.ggph...","四谷緑道",[]]
+					 *   ],...,
+					 *   ["461d5eecd34c4470bc7477de85e295f3.9",1420796733552,
+					 *     ["e","R","e04009033afa429484b2e37df099243d.16",35659229,139457394,"70c95b25c1484cd0ae80cff45837af23.11",35659808,139457947]
+					 *   ],...,
+					 *   ["acec3be4fb5d4512878ca3993099aed9.b",1418819948604,
+					 *     ["r","R",[
+					 *       ["59297dd6018843239e6ade650bd06302.16",35655301,139479862],
+					 *       ["c7291ff655a9454aae2a60f82ba790b2.16",35654762,139477551],
+					 *       ["ffc88d3c9af94690bc75ce40ee45eb18.16",35655186,139477885]
+					 *     ]
+					 *   ],...
+					 * ]
+					 */
 					val gameEntities = (regionInfo \ "gameEntities").toList.flatMap{ x =>
 						val guid = x(0).extractOpt[String].get
 						val unknown = x(1).extractOpt[Double].get
-						(x \ "type").extractOpt[String].get match {
-							case "portal" => Some(Portal(guid, unknown, x))
-							case "edge" => Some(Edge(guid, unknown, x))
-							case "region" => Some(Region(guid, unknown, x))
+						val entity = x(2).toList
+						entity(0).extractOpt[String] match {
+							case Some("p") => Some(Portal(guid, unknown, entity))
+							case Some("e") => Some(Edge(guid, unknown, entity))
+							case Some("r") => Some(Region(guid, unknown, entity))
 							case uk =>
 								logger.warn(s"unknown game-entity type: $uk")
 								None
@@ -286,7 +330,7 @@ object Implicit {
 				if(value == JNothing) {
 					logger.warn(s"parse error: JNothing", ex)
 				} else {
-					logger.warn(s"parse error: ${pretty(render(value))}", ex)
+					logger.warn(s"parse error: ${value.toPretty}", ex)
 				}
 				None
 		}
@@ -295,7 +339,7 @@ object Implicit {
 		} catch {
 			case ex:Exception =>
 				if(! ex.isInstanceOf[Checked]){
-					logger.warn(s"parse error: ${pretty(render(value))}", ex)
+					logger.warn(s"parse error: ${value.toPretty}", ex)
 				}
 				throw new Checked
 		}
@@ -314,5 +358,11 @@ object Implicit {
 			case o:JObject => o.obj.toMap
 			case _ => Map()
 		}
+		def toCompact:String = if(value == JNothing){
+			"undefined"
+		} else compact(render(value))
+		def toPretty:String = if(value == JNothing){
+			"undefined"
+		} else pretty(render(value))
 	}
 }

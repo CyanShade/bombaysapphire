@@ -1,7 +1,7 @@
 
 organization := "org.koiroha"
 
-name := "bombaysapphire"
+name := "bombaysapphire-garuda"
 
 version := "1.0.0-SNAPSHOT"
 

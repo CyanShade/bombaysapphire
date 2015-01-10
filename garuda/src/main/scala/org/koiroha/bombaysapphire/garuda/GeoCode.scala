@@ -3,7 +3,7 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire
+package org.koiroha.bombaysapphire.garuda
 
 import java.io.IOException
 import java.net.URL
@@ -29,17 +29,12 @@ import scala.slick.jdbc.StaticQuery.interpolation
  *
  * @author Takami Torao
  */
-object GeoCode {
-	private[this] val logger = LoggerFactory.getLogger(getClass)
+class GeoCode private[garuda](context:Context) {
+	import org.koiroha.bombaysapphire.garuda.GeoCode._
 	private[this] implicit val _Format = DefaultFormats
 
 	/**
-	 * GeoHash に基づく位置情報。
-	 */
-	case class Location(geoHash:String, country:String, state:String, city:String)
-
-	/**
-	 * API に負荷をかけないために最大でも 1 スレッドで問い合わせを行う。
+	 * Geocode API に負荷をかけないために最大でも 1 スレッドで問い合わせを行う。
 	 */
 	private[this] implicit val worker = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor(new ThreadFactory {
 		override def newThread(r:Runnable):Thread = {
@@ -61,7 +56,7 @@ object GeoCode {
 	 * 全世界に対して API を使用しないための geocode 有効範囲を判定。
 	 * 現在日本の領域内でのみ有効。
 	 */
-	def available(lat:Double, lng:Double):Boolean = Context.Region.contains(lat, lng)
+	def available(lat:Double, lng:Double):Boolean = true
 
 	/**
 	 * 指定された緯度/経度の位置情報を取得。
@@ -79,7 +74,7 @@ object GeoCode {
 	/**
 	 * 指定された GeoHash の位置情報を取得し DB に保存する。
 	 */
-	private[this] def load(gh:String):Location = Context.Database.withSession { implicit s =>
+	private[this] def load(gh:String):Location = context.database.withSession { implicit s =>
 
 		Tables.Geohash.filter {_.geohash === gh}.firstOption match {
 			case Some(g) =>
@@ -93,6 +88,7 @@ object GeoCode {
 				val lng = p.getLongitude
 				val (country, state, city) = heuristicLocation(lat, lng) match {
 					case Some(csc) =>
+						// 既知の領域にヒットした場合はそのまま返す
 						logger.debug("hit heuristics region")
 						csc
 					case None =>
@@ -102,7 +98,7 @@ object GeoCode {
 						}
 						logger.debug("calling remote geocode api")
 						val con = new URL(s"http://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&sensor=false").openConnection()
-						con.setRequestProperty("Accept-Language", s"${Context.Locale.language},en;q=0.8")
+						con.setRequestProperty("Accept-Language", s"${context.locale.language},en;q=0.8")
 						val result = parse(con.getInputStream)
 						(result \ "status").extract[String] match {
 							case "OK" =>
@@ -178,4 +174,13 @@ object GeoCode {
 	 */
 	private[this] var overlimit:Option[Long] = None
 
+}
+
+object GeoCode {
+	private[GeoCode] val logger = LoggerFactory.getLogger(getClass)
+
+	/**
+	 * GeoHash に基づく位置情報。
+	 */
+	case class Location(geoHash:String, country:String, state:String, city:String)
 }

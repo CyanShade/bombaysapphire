@@ -3,97 +3,136 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire
+package org.koiroha.bombaysapphire.garuda
 
+import java.io.File
 import java.sql.Timestamp
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{Executors, ThreadFactory}
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
-import com.typesafe.config.ConfigFactory
-import org.json4s.JsonAST.JNull
+import org.json4s._
 import org.json4s.native.JsonMethods._
-import org.json4s.{DefaultFormats, JObject, JValue}
-import org.koiroha.bombaysapphire.Entities.Portal
-import org.koiroha.bombaysapphire.GeoCode.Location
+import org.koiroha.bombaysapphire.GarudaAPI
+import org.koiroha.bombaysapphire.garuda.Entities.Portal
+import org.koiroha.bombaysapphire.geom.{LatLng, Polygon, Rectangle, Region}
 import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.slick.driver.PostgresDriver
 import scala.slick.driver.PostgresDriver.simple._
 import scala.slick.jdbc.StaticQuery.interpolation
 import scala.util.{Failure, Success}
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ParserActor
+// Garuda
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
- * ProxyServer から渡された JSON を解析しそれぞれのエンティティごとに格納する。
+ * 情報収集システム。
+ *
  * @author Takami Torao
  */
-class ParserActor extends Actor with ActorLogging {
-	private[ParserActor] val logger = LoggerFactory.getLogger(classOf[ParserActor])
+class Garuda(context:Context) extends GarudaAPI {
+	import org.koiroha.bombaysapphire.garuda.Garuda._
+
 	private[this] implicit val formats = DefaultFormats
+
+	private[this] implicit val threads = ExecutionContext.fromExecutor(Executors.newCachedThreadPool(new ThreadFactory {
+		private[this] val i = new AtomicInteger(0)
+		override def newThread(r: Runnable): Thread = {
+			new Thread(r, s"GarudaWorker-${i.getAndIncrement}")
+		}
+	}))
 
 	/**
 	 * 開発時は容量が逼迫しているためログは保存しない。
 	 */
 	private[this] val saveLog = false
 
-	// ==============================================================================================
-	// JSON の受信
-	// ==============================================================================================
-	/**
-	 * Entities の JSON データ量が数MB単位となり Akka Remoting では受け渡しに支障が出るため (設定を変更すれば
-	 * 良さそうだが結局生ログ保存は必要なので) ID だけ受け渡して DB 経由で JSON を取得する。
-	 */
-	def receive = {
-		case ParseTask(method, logid, runAt) =>
-			val tm = new Timestamp(runAt)
-
-			Context.Database.withSession { implicit session =>
-				// 共有ストレージ経由で Blob データを取得
-				val (content,request,response) = Tables.Logs.filter { _.id === logid }.map{ l => (l.content,l.request,l.response) }.first
-				if(! saveLog){
-					Tables.Logs.filter{ _.id === logid }.delete
-				}
-
-				// デバッグや分析に不要な大量のゴミ情報を除去
-				val json = parse(content).transformField{
-					case ("v",v) =>
-						// logger.debug(s"v: ${v.extract[String]}")
-						"v" -> JNull
-					case ("b",b) =>
-						// logger.debug(s"b: ${b.extract[String]}")
-						"b" -> JNull
-					case ("c",c) =>
-						// logger.debug(s"c: ${compact(render(c))}")
-						"c" -> JNull
-				}
-				if(json.children.size == 0){
-					logger.error(s"empty response: $method=$content")
-				} else (method match {
-					case "getGameScore" => GameScore(json \ "result")
-					case "getRegionScoreDetails" => RegionScoreDetails(json)
-					case "getPlexts" => Plext(json)
-					case "getEntities" => Entities(json).map{ entities =>
-						saveEntities(tm, entities)
-						entities
-					}
-					case "getPortalDetails" => PortalDetails(json).map { pd =>
-						savePortalDetail(tm, pd, request)
-						pd
-					}
-					case "artifacts" =>
-						logger.debug("ignore artifacts information")
-						json.asInstanceOf[JObject].values.get("result")
-					case _ =>
-						logger.warn(s"unexpected method: $method; $content")
-						json.asInstanceOf[JObject].values.get("result")
-				}) foreach { obj =>
-						val str = obj.toString
-						logger.trace(s"${if(str.length>5000) str.substring(0,5000) else str}")
-				}
+	/** 指定領域を含む tile key の参照 */
+	override def tileKeys(rect:Rectangle):Future[Seq[(String, Rectangle)]] = future { implicit session =>
+		logger.trace(s"tileKey($rect)")
+		Tables.Portals.groupBy{ _.tileKey }
+			.map{ case (tileKey, c) => (tileKey, c.map{_.late6}.max, c.map{_.late6}.min, c.map{_.lnge6}.max, c.map{_.lnge6}.min) }
+			.list
+			.map { case (tileKey, lat0, lat1, lng0, lng1) =>
+				(tileKey, Rectangle(lat0.get/1e6, lng0.get/1e6, lat1.get/1e6, lng1.get/1e6))
 			}
-		case Shutdown() => context.stop(self)
+	}
+
+	/** 行政区指定の巡回に対する領域の問い合わせ */
+	override def administrativeDistricts():Future[Seq[(String, String, String)]] = future { implicit session =>
+		logger.trace(s"administrativeDistricts()")
+		Tables.HeuristicRegions
+			.filter{ _.side === "O" }
+			.sortBy{ c => (c.country, c.state, c.city) }
+			.map{ c => (c.country, c.state.getOrElse(""), c.city.getOrElse("")) }
+			.list
+	}
+
+	/** 行政区指定の巡回に対する領域の問い合わせ */
+	override def administrativeDistrict(country:String, state:String, city:String):Future[Option[Region]] = future { implicit s =>
+		logger.trace(s"administrativeDistrict($country,$state,$city)")
+		val polygons = (if(state == "") {
+			Tables.HeuristicRegions.filter{ t => t.side === "O" && t.country === country}
+		} else if(city == ""){
+			Tables.HeuristicRegions.filter{ t => t.side === "O" && t.country === country && t.state === state }
+		} else {
+			Tables.HeuristicRegions.filter{ t => t.side === "O" && t.country === country && t.state === state && t.city === city }
+		}).map{ t => t.region }.list.map { region =>
+			if(region.startsWith("((") && region.endsWith("))")){
+				Polygon(region.substring(2, region.length - 2).split("\\),\\(")
+					.map{ _.split(",", 2).map{ _.toDouble } }.map{ case Array(lat,lng) => LatLng(lat,lng) }.toSeq)
+			} else throw new IllegalArgumentException(s"unexpected polygon data format: $region")
+		}
+		if(polygons.isEmpty){
+			None
+		} else {
+			Some(Region(s"$country/$state/$city", polygons))
+		}
+	}
+
+	/** データの保存 */
+	override def store(method:String, request:String, response:String, timestamp:Long):Unit = future { implicit session =>
+		if(logger.isTraceEnabled){
+			logger.trace(s"store($method,req,res,$timestamp)")
+			parseOpt(request).map{ j => pretty(render(j)) }.foreach{ r =>
+				logger.trace(s"  req: ${trim(r,16*1024)}")
+			}
+			parseOpt(response).map{ j => pretty(render(j)) }.foreach{ r =>
+				logger.trace(s"  res: ${trim(r,16*1024)}")
+			}
+		}
+		val tm = new Timestamp(timestamp)
+		// デバッグや分析に不要な大量のゴミ情報を除去
+		def _parse(s:String) = parse(s).transformField{
+			case ("v",v) => "v" -> JNull
+			case ("b",b) => "b" -> JNull
+			case ("c",c) => "c" -> JNull
+		}
+		lazy val reqJson = _parse(request)
+		val resJson = _parse(response)
+		if(resJson.children.size == 0){
+			logger.error(s"empty response: $method=$request")
+		} else (method match {
+			case "getGameScore" => GameScore(resJson \ "result")
+			case "getRegionScoreDetails" => RegionScoreDetails(resJson)
+			case "getPlexts" => Plext(resJson)
+			case "getEntities" => Entities(resJson).map{ entities =>
+				saveEntities(tm, entities)
+				entities
+			}
+			case "getPortalDetails" => PortalDetails(resJson).map { pd =>
+				savePortalDetail(tm, pd, request)
+				pd
+			}
+			case _ =>
+				logger.warn(s"unexpected method: $method; $request")
+				resJson.asInstanceOf[JObject].values.get("result")
+		}) foreach { obj =>
+			val str = obj.toString
+			logger.trace(s"${if(str.length>5000) str.substring(0,5000) else str}")
+		}
 	}
 
 	// ==============================================================================================
@@ -113,7 +152,7 @@ class ParserActor extends Actor with ActorLogging {
 					.map { p => (p.id, p.late6, p.lnge6, p.title, p.geohash)
 				}.first
 				val location = Tables.Geohash.filter { g => g.geohash === geohash}
-						.map { g => (g.country, g.state, g.city)
+					.map { g => (g.country, g.state, g.city)
 				}.firstOption match {
 					case Some((country, state, city)) => " ($city, $state, $country)"
 					case None => ""
@@ -186,9 +225,8 @@ class ParserActor extends Actor with ActorLogging {
 				Tables.Portals.filter{ _.id === p.id}.map{ _.verifiedAt }.update(tm)
 				false
 			case None =>
-				import scala.concurrent.ExecutionContext.Implicits.global
 				// 有効範囲のものだけ新規ポータルとして追加
-				if(GeoCode.available(cp.latE6/1e6, cp.lngE6/1e6)){
+				if(context.geocode.available(cp.latE6/1e6, cp.lngE6/1e6)){
 					Tables.Portals.map{ x =>
 						(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
 					}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
@@ -221,23 +259,30 @@ class ParserActor extends Actor with ActorLogging {
 	/**
 	 * 緯度/経度に対して最も近い定義済み GeoHash を参照。
 	 */
-	private[this] def setGeoHashAsync(guid:String, latE6:Int, lngE6:Int):Future[Option[Location]] = {
-		import scala.concurrent.ExecutionContext.Implicits.global
+	private[this] def setGeoHashAsync(guid:String, latE6:Int, lngE6:Int):Future[Option[GeoCode.Location]] = {
 		// 行政区情報は API を使用するため非同期で設定
-		GeoCode.getLocation(latE6/1e6, lngE6/1e6).andThen {
+		context.geocode.getLocation(latE6/1e6, lngE6/1e6).andThen {
 			case Success(Some(location)) =>
-				Context.Database.withSession { implicit session =>
+				context.database.withSession { implicit session =>
 					Tables.Portals
 						.filter{ _.guid === guid }.map{ x => (x.geohash, x.updatedAt) }
 						.update((Some(location.geoHash), new Timestamp(System.currentTimeMillis())))
 				}
 		}
 	}
-}
-object ParserActor {
-	def main(args:Array[String]):Unit = {
-		val config = ConfigFactory.load("parser.conf")
-		val system = ActorSystem.apply("bombaysapphire", config)
-		system.actorOf(Props[ParserActor], "parser")
+
+	private[this] def future[T](exec:(PostgresDriver.backend.Session)=>T):Future[T] = Future {
+		context.database.withSession { exec }
 	}
+
+	private[this] def trim(s:String, len:Int):String = if(s.length <= len) s else {
+		s.substring(0, len - 1) + "…"
+	}
+}
+
+object Garuda extends App {
+	private[Garuda] val logger = LoggerFactory.getLogger(classOf[Garuda])
+
+	val context = Context(new File(args.head))
+	context.server.start()
 }

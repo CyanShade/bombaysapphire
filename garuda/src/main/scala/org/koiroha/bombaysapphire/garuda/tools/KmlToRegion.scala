@@ -3,12 +3,12 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire.tools
+package org.koiroha.bombaysapphire.garuda.tools
 
 import java.io.{File, FileInputStream, InputStream}
 import java.util.zip.ZipFile
 
-import org.koiroha.bombaysapphire.Context
+import org.koiroha.bombaysapphire.garuda.Context
 import org.koiroha.bombaysapphire.io.using
 import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
@@ -27,24 +27,10 @@ import scala.xml.XML
  *
  * @author Takami Torao
  */
-object KmlToRegion {
-	val logger = LoggerFactory.getLogger(getClass)
+class KmlToRegion(context:Context) {
+	import org.koiroha.bombaysapphire.garuda.tools.KmlToRegion._
 
-	private[this] val helpString =
-		s"""OPTIONS:
-			 |
-		 """.stripMargin
-
-	def main(args:Array[String]):Unit = {
-		val imported = args.map{ f => restore(new File(f)) }.sum
-		logger.info(s"$imported 領域をインポートしました.")
-	}
-
-	private[this] val FigureNameCSC = """([A-Z]{2})/([^/]*)/([^\.]*)\.(inside|outside)""".r
-	private[this] val FigureNameCS = """([A-Z]{2})/([^\.]*)\.(inside|outside)""".r
-	private[this] val FigureNameC = """([A-Z]{2})\.(inside|outside)""".r
-
-	private[this] def restore(file:File):Int = {
+	def restore(file:File):Int = {
 		val imported = if(file.getName.endsWith(".kml")) {
 			using(new FileInputStream(file)){ in =>
 				restore(file.toString, in)
@@ -66,7 +52,7 @@ object KmlToRegion {
 	}
 
 	private[this] def restore(systemId:String, in:InputStream):Int = {
-		Context.Database.withTransaction{ implicit session =>
+		context.database.withTransaction{ implicit session =>
 			val is = new InputSource(systemId)
 			is.setByteStream(in)
 			val doc = XML.load(is)
@@ -154,4 +140,25 @@ object KmlToRegion {
 	case class Country(code:String)
 	case class State(name:String)
 	case class City(name:String)
+}
+object KmlToRegion {
+	val logger = LoggerFactory.getLogger(getClass)
+
+	private[KmlToRegion] val FigureNameCSC = """([A-Z]{2})/([^/]*)/([^\.]*)\.(inside|outside)""".r
+	private[KmlToRegion] val FigureNameCS = """([A-Z]{2})/([^\.]*)\.(inside|outside)""".r
+	private[KmlToRegion] val FigureNameC = """([A-Z]{2})\.(inside|outside)""".r
+
+	private[this] val helpString =
+		s"""OPTIONS:
+			 |
+		 """.stripMargin
+
+	def main(args: Array[String]): Unit = {
+		val context = Context(new File(args.head))
+		val imported = args.tail.map { f =>
+			val app = new KmlToRegion(context)
+			app.restore(new File(f))
+		}.sum
+		logger.info(s"$imported 領域をインポートしました.")
+	}
 }

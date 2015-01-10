@@ -1,4 +1,4 @@
-package org.koiroha.bombaysapphire;
+package org.koiroha.bombaysapphire.agent;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;

@@ -3,13 +3,13 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire.tools
+package org.koiroha.bombaysapphire.garuda.tools
 
 import java.sql.Timestamp
 import java.util.concurrent.atomic.AtomicBoolean
 
+import org.koiroha.bombaysapphire.garuda.Context
 import org.koiroha.bombaysapphire.schema.Tables
-import org.koiroha.bombaysapphire.{Batch, Context, GeoCode}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
@@ -25,8 +25,8 @@ import scala.util.{Failure, Success, Try}
  * Google のレートリミットが1日 2,000 程度。
  * @author Takami Torao
  */
-object GeoCodeBatch {
-	private[this] val logger = LoggerFactory.getLogger(getClass)
+class GeoCodeBatch(context:Context) {
+	import GeoCodeBatch.logger
 
 	private[this] val batchRunning = new AtomicBoolean(false)
 
@@ -40,7 +40,11 @@ object GeoCodeBatch {
 		true
 	} finally { batchRunning.set(false) } else false
 
-	def check() = Context.Database.withSession { implicit session =>
+	/**
+	 *
+	 */
+	/*
+	def check() = context.database.withSession { implicit session =>
 		logger.info("取得済みポータルのうち調査対象領域に含まれている件数を計算しています...")
 		val (inside, outside) = Tables.Portals.map{ p => (p.late6, p.lnge6) }.run
 			.foldLeft((0,0)){ case ((x,y), (latE6, lngE6)) =>
@@ -77,10 +81,12 @@ object GeoCodeBatch {
 		logger.info(f"解決可能: $avail%,d 地点")
 		logger.info(f"該当なし: $unavail%,d 地点 (API問い合わせが発生するもの)")
 	}
+	*/
 
 	/**
 	 * 有効範囲外のポータルを削除。
 	 */
+	/*
 	def deleteIneffectualPortals():Unit = {
 		logger.info("調査領域外のポータルを削除しています...")
 		val deleted = Context.Database.withSession { implicit session =>
@@ -97,21 +103,22 @@ object GeoCodeBatch {
 			logger.info(s"調査領域外のポータルが $deleted 地点削除されました")
 		}
 	}
+	*/
 
 	/**
 	 * GeoHash に登録されていないポータルに対して Google Map API から逆ジオコードで住所を取得し設定。
 	 */
 	def updateUnlocatedPortals():Unit = {
-		val (updated, skipped, _) = Context.Database.withSession { implicit session =>
+		val (updated, skipped, _) = context.database.withSession { implicit session =>
 			Tables.Portals
 				.filter {_.geohash.isEmpty}
-				.sortBy{ _.createdAt.desc}
+				.sortBy{ _.createdAt.desc}    // 最近登録されたものを優先的に取得
 				.map { p => (p.id, p.late6, p.lnge6) }.run
 		}.foldLeft((0, 0, false)) { case ((count, skip, error), (id, latE6, lngE6)) =>
-			val future = GeoCode.getLocation(latE6 / 1e6, lngE6 / 1e6)
+			val future = context.geocode.getLocation(latE6 / 1e6, lngE6 / 1e6)
 			Try{ Await.result(future, Duration.Inf) } match {
 				case Success(Some(location)) =>
-					Context.Database.withSession { implicit s =>
+					context.database.withSession { implicit s =>
 						Tables.Portals.filter {_.id === id}.map { p => (p.geohash, p.updatedAt)}
 							.update(Some(location.geoHash), new Timestamp(System.currentTimeMillis()))
 						logger.info(s"update portal location: [$id] ${location.country} ${location.state} ${location.city}")
@@ -128,17 +135,7 @@ object GeoCodeBatch {
 		logger.info(s"$updated 個の位置情報を取得し $skipped 個をスキップしました")
 	}
 
-	/**
-	 * 1時間に一度メンテナンスバッチを起動
-	 */
-	def main(args:Array[String]):Unit = {
-		requestBatch()
-		locally {
-			Batch.runEveryAfter(60 * 60 * 1000){
-				GeoCodeBatch.requestBatch()
-			}
-		}
-		synchronized{ wait() }
-	}
-
+}
+object GeoCodeBatch {
+	private[GeoCodeBatch] val logger = LoggerFactory.getLogger(getClass)
 }
