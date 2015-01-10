@@ -1,7 +1,7 @@
 
 organization := "org.koiroha"
 
-name := "bombaysapphire-sentinel"
+name := "bombaysapphire-share"
 
 version := "1.0.0-SNAPSHOT"
 
@@ -12,9 +12,9 @@ scalacOptions ++= Seq("-unchecked", "-feature", "-deprecation", "-encoding", "UT
 javacOptions ++= Seq("-encoding", "UTF-8", "-source", "1.8", "-target", "1.8")
 
 libraryDependencies ++= Seq(
-  "org.koiroha" %% "bombaysapphire-share" % "least.integration",
   "com.twitter" %% "finagle-http" % "6.+",
-  "org.json4s" %% "json4s-native" % "3.2.+",
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "latest.integration",
+  "org.scala-lang.modules" %% "scala-xml" %  "latest.integration",
   "org.slf4j" %  "slf4j-log4j12" % "latest.integration"
 )
 

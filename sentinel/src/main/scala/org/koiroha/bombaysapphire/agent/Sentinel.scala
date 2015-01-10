@@ -173,7 +173,10 @@ class Sentinel extends Application  {
 				""".stripMargin)
       logger.info(s"Sign-in 実行: ${engine.getLocation}")
       signedIn = true
-    } else if(engine.getLocation.startsWith(s"https://${BombaySapphire.RemoteHost}/intel?")){
+    } else if(engine.getLocation.startsWith(s"https://${BombaySapphire.RemoteHost}/intel?")) {
+      None
+    } else if(engine.getLocation.startsWith("https://accounts.google.com/CheckCookie?")){
+      logger.debug(s"CookieCheck page redirect")
       None
     } else {
       logger.info(s"予期しないページが表示されました: ${engine.getLocation}")
@@ -198,7 +201,7 @@ class Sentinel extends Application  {
           logger.info(f"[$patroledPoints%,d/${points.remains}%,d] $lat%.6f/$lng%.6f; $remainsText")
           // 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
           engine.load(s"https://${BombaySapphire.RemoteHost}/intel?ll=$lat,$lng&z=17")
-          nextMapMove(conf.intervalSeconds)
+          nextMapMove(conf.intervalSeconds * 1000)
         }
         Batch.runAfter(tm){
           Platform.runLater(new Runnable {
@@ -210,11 +213,12 @@ class Sentinel extends Application  {
 
     /** ログ出力用の経過時間 */
     private[this] def remainsText:String = {
-      def span(tm:Long):String = {
-        val t = f"${tm/60/60%24}%d:${tm/60%60}:${tm%60}"
-        if(tm < 24 * 60 * 60) t else f"${tm/60/60/24}%,d days, $t"
+      def span(msec:Long):String = {
+        val sec = msec / 1000
+        val t = f"${sec/60/60%24}%d:${sec/60%60}%02d:${sec%60}%02d"
+        if(sec < 24 * 60 * 60) t else f"${sec/60/60/24}%,d days, $t"
       }
-      val tm = (System.currentTimeMillis() - start) / 1000
+      val tm = System.currentTimeMillis() - start
       if(points.remains == 0 || patroledPoints == 0){
         span(tm)
       } else {

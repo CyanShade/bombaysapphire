@@ -33,7 +33,7 @@ private class ParasitizedSSLSocketFactory(hostname:String, port:Int, proxy:InetS
   override def getSupportedCipherSuites:Array[String] = root.getSupportedCipherSuites
   override def createSocket(socket:Socket, hostname:String, port:Int, autoClose:Boolean):Socket = {
     val scs = if(hostname == this.hostname && port == this.port) {
-      logger.debug(s"createSocket(socket, $hostname, $port, $autoClose) forward to ${proxy.getHostName}:${proxy.getPort}")
+      logger.trace(s"createSocket(socket, $hostname, $port, $autoClose) forward to ${proxy.getHostName}:${proxy.getPort}")
       socket.close()
       new Socket(proxy.getAddress, proxy.getPort)
     } else {
@@ -43,7 +43,7 @@ private class ParasitizedSSLSocketFactory(hostname:String, port:Int, proxy:InetS
   }
   override def createSocket(hostname:String, port:Int):Socket = {
     if(hostname == this.hostname && port == this.port) {
-      logger.debug(s"createSocket($hostname, $port) forward to ${proxy.getHostName}:${proxy.getPort}")
+      logger.trace(s"createSocket($hostname, $port) forward to ${proxy.getHostName}:${proxy.getPort}")
       new Socket(proxy.getAddress, proxy.getPort)
     } else {
       new Socket(hostname, port)
@@ -52,7 +52,7 @@ private class ParasitizedSSLSocketFactory(hostname:String, port:Int, proxy:InetS
   override def createSocket(hostname:String, port:Int, local:InetAddress, localPort:Int): Socket = ???
   override def createSocket(address:InetAddress, port:Int):Socket = {
     if(address.getHostName == this.hostname && port == this.port) {
-      logger.debug(s"createSocket($address, $port) forward to ${proxy.getHostName}:${proxy.getPort}")
+      logger.trace(s"createSocket($address, $port) forward to ${proxy.getHostName}:${proxy.getPort}")
       new Socket(proxy.getAddress, proxy.getPort)
     } else {
       new Socket(address, port)

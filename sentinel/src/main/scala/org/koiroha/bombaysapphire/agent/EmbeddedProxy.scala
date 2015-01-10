@@ -19,7 +19,6 @@ import org.koiroha.bombaysapphire.agent.EmbeddedProxy.Stub
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // EmbeddedProxy
@@ -58,7 +57,7 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
           Client(proxyRequest).filter{ r =>
             val time = System.currentTimeMillis() - start
             logger.debug(f"${r.getStatus.getCode}%s ${r.getStatus.getReasonPhrase}%s (${request.getUri}%s; $time%,d[ms])")
-            save(name, r.getContent, proxyRequest, r)
+            save(name, proxyRequest, r)
             true
           }
         case _ => Client(proxyRequest)
@@ -66,15 +65,9 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
     }
   }
 
-  private[this] def save(method:String, c:ChannelBuffer, request:HttpRequest, response:HttpResponse):Unit = {
+  private[this] def save(method:String, request:HttpRequest, response:HttpResponse):Unit = {
     val tm = System.currentTimeMillis()
-    val content = c.asString
-    val req = s"${request.getMethod.getName} ${request.getUri} ${request.getProtocolVersion.getText}\n" +
-      request.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n") +
-      "\n" + request.getContent.asString
-    val res = s"${response.getProtocolVersion.getText} ${response.getStatus.getCode} ${response.getStatus.getReasonPhrase}\n" +
-      response.headers().map{ e => s"${e.getKey}: ${e.getValue}" }.mkString("\n") +
-      "\n" + content
+    val content = response.getContent.asString
 
     // 正しい JSON 形式であり空で無いことを確認
     org.json4s.native.JsonMethods.parseOpt(content) match {
@@ -83,7 +76,7 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
           logger.warn("結果が空です; 呼び出し制限を超えたようです!")
           stub.onOverLimit()
         } else {
-          config.garuda.store(method, content)
+          config.garuda.store(method, request.getContent.asString, content, System.currentTimeMillis())
           // 取得済みの tile_key を取得する
           if(method == "getEntities"){
             stub.retrieveTileKeys(map.values.keySet)

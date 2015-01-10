@@ -17,6 +17,7 @@ import javafx.scene.{Group, Scene}
 import javafx.stage.Stage
 import javax.net.ssl._
 
+import com.google.common.collect.Tables
 import org.koiroha.bombaysapphire.schema.Tables
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Element, Node, NodeList}

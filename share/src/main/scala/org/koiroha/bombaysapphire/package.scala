@@ -29,9 +29,8 @@ package object geom {
 	type Longitude = Double
 
 	case class LatLng(latitude: Latitude, longitude: Longitude) {
-		assert(latitude >= -90 && latitude <= 90)
-		assert(longitude >= -180 && longitude <= 180)
-
+		assert(latitude >= -90 && latitude <= 90, s"$latitude overflow")
+		assert(longitude >= -180 && longitude <= 180, s"$longitude overflow")
 		def this(latE6: Int, lngE6: Int) = this(latE6 / 1e6, lngE6 / 1e6)
 	}
 
@@ -47,6 +46,7 @@ package object geom {
 
 	case class Polygon(points: Seq[LatLng]) extends Shape {
 		assert(points.size >= 3)
+		/** (lat,lng) の多角形 */
 		private[this] val polygon = locally {
 			val path = new Path2D.Double()
 			path.moveTo(points(0).latitude, points(0).longitude)
@@ -63,11 +63,15 @@ package object geom {
 
 		lazy val rectangle: Rectangle = {
 			val rect = polygon.getBounds2D
-			Rectangle(rect.getY + rect.getHeight, rect.getX + rect.getWidth, rect.getY, rect.getX)
+			Rectangle(rect.getX + rect.getWidth, rect.getY + rect.getHeight, rect.getX, rect.getY)
 		}
 	}
 
 	case class Rectangle(north: Latitude, east: Longitude, south: Latitude, west: Longitude) extends Shape {
+		assert(north >= -90 && north <= 90, s"$north overflow")
+		assert(east >= -180 && east <= 180, s"$east overflow")
+		assert(south >= -90 && south <= 90, s"$south overflow")
+		assert(west >= -180 && west <= 180, s"$west overflow")
 		assert(north >= south)
 		assert(east >= west)
 		private[bombaysapphire] val rect = new Rectangle2D.Double(west, south, east - west, north - south)
@@ -83,7 +87,7 @@ package object geom {
 			Rectangle(rx.getY + rx.getHeight, rx.getX + rx.getWidth, rx.getY, rx.getX)
 		}
 
-		lazy val center: LatLng = LatLng((north + south) / 2.0, (east - west) / 2.0)
+		lazy val center: LatLng = LatLng((north + south) / 2.0, (east + west) / 2.0)
 	}
 
 	case class Region(name: String, shapes: Seq[Shape]) extends Shape {

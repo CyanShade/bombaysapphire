@@ -7,7 +7,7 @@
       <param name="conversionPattern" value="[%d] %-5p %-17c{1} %m%n" />
     </layout>
   </appender>
-  <logger name="org.koiroha.bombaysapphire.agent" additivity="false">
+  <logger name="org.koiroha.bombaysapphire.garuda" additivity="false">
     <level value="trace"/>
     <appender-ref ref="console"/>
   </logger>

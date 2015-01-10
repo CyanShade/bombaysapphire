@@ -50,6 +50,7 @@ object WayPoints {
       def next():LatLng = {
         val head = waypoints.head
         waypoints = waypoints.tail
+        logger.trace(s"next position: (${head.latitude}, ${head.longitude})")
         head
       }
       def remains:Int = waypoints.size
@@ -65,9 +66,10 @@ object WayPoints {
     def by(area:Region):Iterator = new Iterator {
       private[this] var waypoints = Await.result(api.tileKeys(area.rectangle), Duration.Inf)
       def next():LatLng = {
-        val head = waypoints.head
+        val (tileKey, rect) = waypoints.head
         waypoints = waypoints.tail
-        head._2.center
+        logger.trace(s"next position: $tileKey, $rect")
+        rect.center
       }
       def remains: Int = {
         waypoints = waypoints.filterNot { k => ignoreable(k._1) }
