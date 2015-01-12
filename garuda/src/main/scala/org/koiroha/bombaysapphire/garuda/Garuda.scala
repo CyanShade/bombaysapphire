@@ -15,7 +15,7 @@ import org.json4s.native.JsonMethods._
 import org.koiroha.bombaysapphire.GarudaAPI
 import org.koiroha.bombaysapphire.garuda.Entities.Portal
 import org.koiroha.bombaysapphire.geom.{LatLng, Polygon, Rectangle, Region}
-import org.koiroha.bombaysapphire.schema.Tables
+import org.koiroha.bombaysapphire.garuda.schema.Tables
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -144,7 +144,10 @@ class Garuda(context:Context) extends GarudaAPI {
 	 */
 	private[this] def saveEntities(tm:Timestamp, entities:Entities)(implicit session:Session):Unit = {
 		val start = System.currentTimeMillis()
-		val newPortals = entities.map.map{ case (tileKey, rm) =>
+		val portalReport = entities.map.filter{ case (tileKey,_) =>
+			// zoom=17 の tile_key のみを保存対象とする
+			tileKey.startsWith("17_")
+		}.map{ case (tileKey, rm) =>
 			// 削除されたポータルの検出と削除
 			val avails = Tables.Portals.filter{ p => p.tileKey === tileKey && p.deletedAt.isEmpty }.map{ p => p.guid }.run
 			avails.intersect(rm.deletedGameEntityGuids).foreach { guid =>
@@ -160,17 +163,19 @@ class Garuda(context:Context) extends GarudaAPI {
 				notice(latE6, lngE6,
 					s"ポータルの消失を検出しました: $title$location", "portal_removed", id.toString)
 				Tables.Portals.filter{ p => p.guid === guid && p.deletedAt.isEmpty }.map{ p => p.deletedAt }.update(Some(tm))
+				savePortalEvent(id, "remove", None, None, tm)
 			}
 			// 各種エンティティの保存
-			rm.gameEntities.map {
+			tileKey -> rm.gameEntities.map {
 				case cp:Portal =>
-					if(savePortal(tm, tileKey, cp)) 1 else 0
-				case _ => 0
-			}.sum
-		}.sum
+					if(savePortal(tm, tileKey, cp)) (1, 1) else (0, 1)
+				case _ => (0, 0)
+			}.reduceLeft{ (a, b) => (a._1+b._1, a._2+b._2) }
+		}.toSeq.sortBy{ _._1 }
 		val time = System.currentTimeMillis() - start
-		val portals = entities.map.values.map{ _.gameEntities.size }.sum
-		logger.debug(f"entities saved: ${entities.map.keys.mkString(",")}%s; $newPortals%,d/$portals%,d new portals, $time%,d[ms]")
+		portalReport.foreach{ case (tileKey, (newPortals, portals)) =>
+			logger.debug(f"entities saved: $tileKey%s; total $portals%,d portals with $newPortals%,d new, $time%,d[ms]")
+		}
 	}
 
 	/**
@@ -205,21 +210,28 @@ class Garuda(context:Context) extends GarudaAPI {
 				// 画像 URL の変更
 				if(p.image != cp.image){
 					record.map{ p => (p.image,p.updatedAt) }.update((cp.image,tm))
+					savePortalEvent(p.id, "change_image", Some(p.image), Some(cp.image), tm)
+					logger.info(s"画像URLを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
 				}
 				// タイトルの変更
 				if(p.title != cp.title){
 					record.map{ p => (p.title,p.updatedAt) }.update((cp.title,tm))
+					savePortalEvent(p.id, "change_title", Some(p.title), Some(cp.title), tm)
+					logger.info(s"タイトルを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${p.title} -> ${cp.title}")
 				}
 				// 位置の変更
 				if(p.late6 != cp.latE6 || p.lnge6 != cp.lngE6){
 					record.map{ x =>
 						(x.late6,x.lnge6,x.updatedAt)
 					}.update((cp.latE6,cp.lngE6,tm))
+					savePortalEvent(p.id, "change_location", Some(p.late6 + "," + p.lnge6), Some(cp.latE6 + "," + cp.lngE6), tm)
 					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6)
+					logger.info(s"位置を変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
 				}
 				// タイルキーの変更
 				if(p.tileKey != regionId){
 					record.map{ x => (x.tileKey,x.updatedAt) }.update((regionId,tm))
+					// logger.info(s"タイルキーを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${p.tileKey} -> $regionId")
 				}
 				// 存在確認日時を設定
 				Tables.Portals.filter{ _.id === p.id}.map{ _.verifiedAt }.update(tm)
@@ -230,6 +242,7 @@ class Garuda(context:Context) extends GarudaAPI {
 					Tables.Portals.map{ x =>
 						(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
 					}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
+					savePortalEvent(Tables.Portals.filter{ _.guid === cp.guid }.map{ _.id }.first, "create", None, None, tm)
 					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6).onComplete{
 						case Success(Some(l)) =>
 							logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${l.city}, ${l.state}, ${l.country}")
@@ -243,6 +256,13 @@ class Garuda(context:Context) extends GarudaAPI {
 				} else false
 		}
 	}
+
+	/**
+	 * ポータルの状況変更をイベントログへ保存。
+	 */
+	private[this] def savePortalEvent(portalId:Int, action:String, oldValue:Option[String], newValue:Option[String], tm:Timestamp)(implicit session:Session):Unit = Tables.PortalEventLogs.map{ x =>
+		(x.portalId, x.action, x.oldValue, x.newValue, x.createdAt)
+	}.insert((portalId, action, oldValue, newValue, tm))
 
 	private[this] def getContentAsJSON(httpMessage:String):JValue = httpMessage.split("\n\n", 2) match {
 		case Array(_) => JNull

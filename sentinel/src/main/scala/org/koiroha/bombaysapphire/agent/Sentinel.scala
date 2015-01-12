@@ -111,7 +111,7 @@ class Sentinel extends Application  {
         val start = System.currentTimeMillis()
         override def close(): Unit = {
           val t = System.currentTimeMillis() - start
-          logger.info(f"${t/60/1000}%,d分${t/1000}%d秒でクロールを終了しました")
+          logger.info(f"${t/60/1000}%,d分${t/1000%60}%d秒で哨戒行動を終了しました")
           primaryStage.close()
           proxy.close()
         }
@@ -224,7 +224,7 @@ class Sentinel extends Application  {
       } else {
         val progress = patroledPoints.toDouble / points.remains
         val remains = (tm / progress).toLong
-        val assumedEnd = start + remains
+        val assumedEnd = System.currentTimeMillis() + remains
         val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
         s"${span(tm)} (残り ${span(remains)}; ${df.format(assumedEnd)} 終了予定)"
       }

@@ -111,8 +111,15 @@ class GarudaAPI(url:URL) extends org.koiroha.bombaysapphire.GarudaAPI {
       .setHeader("Content-Type", "application/octet-stream")
       .setHeader(TimeHeader, (System.currentTimeMillis() - tm).toString)
       .build(HttpMethod.POST, Some(content))
-    client(request).onFailure { ex =>
-      logger.error(s"fail to send data, waiting retry...", ex)
+    client(request).onSuccess{ r =>
+      if(r.getStatus.getCode >= 500){
+        logger.warn(s"fail to send data, waiting retry...: ${r.getStatus.getCode} ${r.getStatus.getReasonPhrase}")
+        Batch.runAfter(30 * 1000L){ _write(method, req, res, tm) }
+      } else if(r.getStatus.getCode >= 400){
+        logger.error(s"fail to send data: ${r.getStatus.getCode} ${r.getStatus.getReasonPhrase}")
+      }
+    }.onFailure { ex =>
+      logger.warn(s"fail to send data, waiting retry...", ex)
       Batch.runAfter(30 * 1000L){ _write(method, req, res, tm) }
     }
   }

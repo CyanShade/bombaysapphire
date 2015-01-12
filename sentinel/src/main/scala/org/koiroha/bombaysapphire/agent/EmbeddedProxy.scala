@@ -5,6 +5,7 @@
 */
 package org.koiroha.bombaysapphire.agent
 
+import java.io.{FileOutputStream, File}
 import java.net.InetSocketAddress
 
 import com.twitter.finagle.Service
@@ -79,7 +80,10 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
           config.garuda.store(method, request.getContent.asString, content, System.currentTimeMillis())
           // 取得済みの tile_key を取得する
           if(method == "getEntities"){
-            stub.retrieveTileKeys(map.values.keySet)
+            stub.retrieveTileKeys(map.values.collect{
+              // エラー (TIMEOUT 等) の発生している tile_key を除外
+              case (tileKey, map:JObject) if map.values.get("error").isEmpty => tileKey
+            }.toSet)
           }
         }
       case Some(unexpected) =>
@@ -97,6 +101,8 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
    * ローカルホストから接続可能な HTTP/HTTPS サーバ。
    */
   private[this] val (http, https) = {
+    val crt = export("server.crt")
+    val key = export("server.key")
     (ServerBuilder()
       .codec(com.twitter.finagle.http.Http())
       .bindTo(new InetSocketAddress("localhost", 0))
@@ -106,7 +112,7 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
       .codec(com.twitter.finagle.http.Http())
       .bindTo(new InetSocketAddress("localhost", 0))
       .name("bombay-sapphire-ssl")
-      .tls("server.crt", "server.key")
+      .tls(crt.toString, key.toString)
       .build(ProxyService))
   }
   logger.info(s"bombay-sapphire proxy listening on port http=${http.localAddress}/https=${https.localAddress}")
@@ -116,6 +122,20 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
   def close():Unit = {
     http.close()
     https.close()
+  }
+
+  // サーバ証明書をローカルの一時ファイルにコピー
+  private[this] def export(name:String):File = {
+    import org.koiroha.bombaysapphire.io._
+    val file = File.createTempFile("epc", ".$$$")
+    file.deleteOnExit()
+    using(getClass.getClassLoader.getResourceAsStream(name)){ in =>
+      val binary = Iterator.continually(in.read()).takeWhile( _ >= 0).map{ _.toByte }.toArray
+      using(new FileOutputStream(file)){ out =>
+        out.write(binary)
+      }
+    }
+    file
   }
 
 }

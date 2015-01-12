@@ -12,7 +12,7 @@ import java.util.concurrent.{Executors, ThreadFactory}
 import ch.hsr.geohash.GeoHash
 import org.json4s.native.JsonMethods._
 import org.json4s.{DefaultFormats, JArray, JValue}
-import org.koiroha.bombaysapphire.schema.Tables
+import org.koiroha.bombaysapphire.garuda.schema.Tables
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

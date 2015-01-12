@@ -1,0 +1,51 @@
+@(message: String)
+
+@main("Welcome to Play") {
+
+<div class="page-header" id="portal">
+    <div class="row">
+        <div class="col-lg-12">
+            <h1>Portals</h1>
+            <!--
+            <p class="lead">クロールに穴が無いかを確認する。</p>
+            -->
+            <form class="form-inline" id="search_form">
+                <div class="form-group form-group-sm">
+                    <input type="datetime" class="form-control" id="created_at&gt;" name="created_at&gt;" placeholder="From">
+                    <input type="datetime" class="form-control" id="created_at&lt;" name="created_at&lt;" placeholder="To">
+                </div>
+                <div class="form-group form-group-sm">
+                    <input type="text" class="form-control" id="country" name="country" placeholder="Country Code">
+                    <input type="text" class="form-control" id="state" name="state" placeholder="State">
+                    <input type="text" class="form-control" id="city" name="city" placeholder="City" value="墨田区">
+                </div>
+                <button id="search" type="button" class="btn btn-default btn-sm">検索</button>
+            </form>
+            <div>
+                <small>現在地: <span id="current_location">-</span></small>
+            </div>
+            <hr/>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-8">
+            <table class="table table-striped" style="height:480px;overflow:scroll;">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>ポータル <small>(<span id="portal_count">0</span>)</small></th>
+                </tr>
+                </thead>
+                <tbody id="portals">
+                </tbody>
+            </table>
+        </div>
+        <div class="col-lg-4">
+            <a href="#" class="thumbnail">
+                <canvas id="plot_area" width="320" height="480"></canvas>
+            </a>
+        </div>
+    </div>
+</div>
+
+}

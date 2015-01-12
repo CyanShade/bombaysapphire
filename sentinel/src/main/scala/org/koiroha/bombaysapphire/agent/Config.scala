@@ -3,8 +3,9 @@ package org.koiroha.bombaysapphire.agent
 import java.io.File
 import java.net.URI
 
+import org.koiroha.bombaysapphire.KML
 import org.koiroha.bombaysapphire.agent.WayPoints.{ByOffset, ByTileKeys}
-import org.koiroha.bombaysapphire.geom.{AdministrativeDistrict, Rectangle, Region}
+import org.koiroha.bombaysapphire.geom.{Rectangle, Region}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
@@ -61,7 +62,7 @@ case class Config(config:Map[String,String]) {
       }
     case Some(("local", district)) =>
       val Seq(file, country, state, city) = (district ++ Seq("", "", "")).take(4)
-      AdministrativeDistrict.fromKML(new File(file).getCanonicalFile).find{ ad =>
+      KML.fromFile(new File(file).getCanonicalFile).find{ ad =>
         (country == "") || (ad.country == country && ad.state == state && ad.city == city)
       } match {
         case Some(reg) => reg.toRegion

@@ -12,7 +12,7 @@ scalacOptions ++= Seq("-unchecked", "-feature", "-deprecation", "-encoding", "UT
 javacOptions ++= Seq("-encoding", "UTF-8", "-source", "1.8", "-target", "1.8")
 
 libraryDependencies ++= Seq(
-  "org.koiroha" %% "bombaysapphire-share" % "least.integration",
+  "org.koiroha" %% "bombaysapphire-share" % "1.0.0-SNAPSHOT",
   "com.twitter" %% "finagle-http" % "6.+",
   "org.json4s" %% "json4s-native" % "3.2.+",
   "org.slf4j" %  "slf4j-log4j12" % "latest.integration"

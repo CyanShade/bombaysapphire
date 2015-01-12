@@ -11,7 +11,8 @@ import java.util.Date
 
 import com.twitter.finagle.Service
 import com.twitter.finagle.builder.ServerBuilder
-import com.twitter.util.{Future, Promise}
+import com.twitter.finagle.http.Http
+import com.twitter.util.{StorageUnit, Future, Promise}
 import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 import org.jboss.netty.handler.codec.http._
 import org.json4s.DefaultFormats
@@ -37,7 +38,7 @@ class Server(context:Context, address:String, port:Int) {
 
 	def start():Unit = {
 		server = Some(ServerBuilder()
-			.codec(com.twitter.finagle.http.Http())
+			.codec(Http(_maxRequestSize = new StorageUnit(50 * 1024 * 1024)))
 			.bindTo(new InetSocketAddress(address, port))
 			.name("garuda")
 			.build(service))

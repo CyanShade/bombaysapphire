@@ -10,7 +10,7 @@ import java.util.zip.ZipFile
 
 import org.koiroha.bombaysapphire.garuda.Context
 import org.koiroha.bombaysapphire.io.using
-import org.koiroha.bombaysapphire.schema.Tables
+import org.koiroha.bombaysapphire.garuda.schema.Tables
 import org.slf4j.LoggerFactory
 import org.xml.sax.InputSource
 
