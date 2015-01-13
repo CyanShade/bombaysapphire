@@ -54,6 +54,15 @@ create unique index portal_idx00 on intel.portals(guid);
 create unique index portal_idx01 on intel.portals(tile_key);
 create unique index portal_idx02 on intel.portals(created_at);
 
+create table intel.portal_event_logs(
+  id serial not null primary key,
+  portal_id integer not null references intel.portals(id) on delete cascade,
+  action varchar not null,
+  old_value varchar,
+  new_value varchar,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
+
 create table intel.agents(
   id serial not null primary key,
   name varchar not null unique,

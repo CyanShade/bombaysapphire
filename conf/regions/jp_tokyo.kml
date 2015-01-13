@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>jp_tokyo.kmz</name>
+	<StyleMap id="msn_ylw-pushpin">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="s_ylw-pushpin_hl">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="s_ylw-pushpin">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="m_ylw-pushpin">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="sn_ylw-pushpin">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<StyleMap id="msn_ylw-pushpin0">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#sn_ylw-pushpin0</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="sn_ylw-pushpin0">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Folder>
+		<name>東京都</name>
+		<Placemark>
+			<name>JP/東京都</name>
+			<visibility>0</visibility>
+			<styleUrl>#m_ylw-pushpin</styleUrl>
+			<Polygon>
+				<tessellate>1</tessellate>
+				<outerBoundaryIs>
+					<LinearRing>
+						<coordinates>
+							138.9286328167926,35.86212665626309,0 138.9497949133106,35.81058602957115,0 138.9943935584571,35.72260222398451,0 139.0999522949034,35.66929573681589,0 139.1780361030283,35.62948766969693,0 139.2296784742373,35.59091039397765,0 139.3122097533714,35.59252347120275,0 139.3801579846025,35.57954659656298,0 139.4347559976205,35.51809536366795,0 139.4764991029778,35.48843273746897,0 139.4966837438953,35.48848846392166,0 139.5040291647897,35.54604583838341,0 139.5203489805294,35.5686979053522,0 139.5114028280224,35.59436753004908,0 139.5340562762486,35.62216137198611,0 139.6542522951165,35.56997037388581,0 139.6934868970341,35.52172188482837,0 139.7843760418099,35.50841886179687,0 139.8361153113541,35.46527576629515,0 139.9295835876812,35.53201822791483,0 139.9095439382116,35.6409984351598,0 139.9108511827667,35.66670778217267,0 139.9425656845691,35.69858819686593,0 139.9072899956772,35.79846010248554,0 139.8248818999565,35.82422468618926,0 139.7551182620922,35.82520991533671,0 139.7348576217949,35.79531021757892,0 139.675251032037,35.80864897389247,0 139.6232739373142,35.80447130825288,0 139.6005293241398,35.78279646596923,0 139.5535072211725,35.80849138784334,0 139.5015107615078,35.8063307103717,0 139.4319851460782,35.77111074652623,0 139.3747625540491,35.79667038084585,0 139.3084932509111,35.83966146893404,0 139.2094935253928,35.85559667668369,0 139.1427536801441,35.87430994248086,0 139.071220015381,35.88363479385241,0 139.015532846905,35.90467236093217,0 138.9633762794229,35.88366919252793,0 138.9286328167926,35.86212665626309,0 
+						</coordinates>
+					</LinearRing>
+				</outerBoundaryIs>
+			</Polygon>
+		</Placemark>
+	</Folder>
+</Document>
+</kml>
