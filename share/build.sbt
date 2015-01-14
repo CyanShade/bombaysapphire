@@ -18,8 +18,7 @@ libraryDependencies ++= Seq(
   "org.slf4j" %  "slf4j-log4j12" % "latest.integration"
 )
 
-TaskKey[Seq[java.io.File]]("collect-jars") <<=
-  ( dependencyClasspath in Compile ) map { paths =>
+TaskKey[Seq[java.io.File]]("collect-jars") <<= ( dependencyClasspath in Compile ) map { paths =>
     paths.map { path =>
       val jar = path.data
       val dist = new File("target/lib/"+jar.getName)

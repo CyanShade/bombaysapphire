@@ -42,11 +42,13 @@ class Server(context:Context, address:String, port:Int) {
 			.bindTo(new InetSocketAddress(address, port))
 			.name("garuda")
 			.build(service))
+		logger.info(s"Garuda API サーバを起動しました: $address:$port")
 	}
 
 	def stop():Unit = {
 		server.foreach{ _.close() }
 		server = None
+		logger.info(s"Garuda API サーバを停止しました")
 	}
 
 	/**
