@@ -33,3 +33,6 @@ TaskKey[Seq[java.io.File]]("collect-jars") <<=
       dist
     }
   }
+
+unmanagedBase := baseDirectory.value / "lib_unmanaged"
+
