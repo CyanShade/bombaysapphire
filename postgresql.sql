@@ -27,7 +27,7 @@ COMMENT ON COLUMN intel.heuristic_regions.side IS '内側の場合 I, 外側の�
 COMMENT ON COLUMN intel.heuristic_regions.seq  IS '同一の行政区内で複数の多角形に分かれる場合の枝番';
 
 create table intel.logs(
-  id serial not null primary key,
+  id bigserial not null primary key,
   method varchar not null,
   content jsonb not null,
   request varchar not null,
@@ -53,6 +53,15 @@ create table intel.portals(
 create unique index portal_idx00 on intel.portals(guid);
 create unique index portal_idx01 on intel.portals(tile_key);
 create unique index portal_idx02 on intel.portals(created_at);
+
+create table intel.portal_event_logs(
+  id serial not null primary key,
+  portal_id integer not null references intel.portals(id) on delete cascade,
+  action varchar not null,
+  old_value varchar,
+  new_value varchar,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
 
 create table intel.agents(
   id serial not null primary key,
