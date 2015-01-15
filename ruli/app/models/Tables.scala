@@ -14,7 +14,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table _Temp
    *  @param r Database column r DBType(polygon), Length(2147483647,false) */
@@ -189,6 +189,44 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table Logs */
   lazy val Logs = new TableQuery(tag => new Logs(tag))
+  
+  /** Entity class storing rows of table PortalEventLogs
+   *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
+   *  @param portalId Database column portal_id DBType(int4)
+   *  @param action Database column action DBType(varchar), Length(2147483647,true)
+   *  @param oldValue Database column old_value DBType(varchar), Length(2147483647,true), Default(None)
+   *  @param newValue Database column new_value DBType(varchar), Length(2147483647,true), Default(None)
+   *  @param createdAt Database column created_at DBType(timestamp) */
+  case class PortalEventLogsRow(id: Int, portalId: Int, action: String, oldValue: Option[String] = None, newValue: Option[String] = None, createdAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching PortalEventLogsRow objects using plain SQL queries */
+  implicit def GetResultPortalEventLogsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp]): GR[PortalEventLogsRow] = GR{
+    prs => import prs._
+    PortalEventLogsRow.tupled((<<[Int], <<[Int], <<[String], <<?[String], <<?[String], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table portal_event_logs. Objects of this class serve as prototypes for rows in queries. */
+  class PortalEventLogs(_tableTag: Tag) extends Table[PortalEventLogsRow](_tableTag, Some("intel"), "portal_event_logs") {
+    def * = (id, portalId, action, oldValue, newValue, createdAt) <> (PortalEventLogsRow.tupled, PortalEventLogsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, portalId.?, action.?, oldValue, newValue, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalEventLogsRow.tupled((_1.get, _2.get, _3.get, _4, _5, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(serial), AutoInc, PrimaryKey */
+    val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column portal_id DBType(int4) */
+    val portalId: Column[Int] = column[Int]("portal_id")
+    /** Database column action DBType(varchar), Length(2147483647,true) */
+    val action: Column[String] = column[String]("action", O.Length(2147483647,varying=true))
+    /** Database column old_value DBType(varchar), Length(2147483647,true), Default(None) */
+    val oldValue: Column[Option[String]] = column[Option[String]]("old_value", O.Length(2147483647,varying=true), O.Default(None))
+    /** Database column new_value DBType(varchar), Length(2147483647,true), Default(None) */
+    val newValue: Column[Option[String]] = column[Option[String]]("new_value", O.Length(2147483647,varying=true), O.Default(None))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    
+    /** Foreign key referencing Portals (database name portal_event_logs_portal_id_fkey) */
+    lazy val portalsFk = foreignKey("portal_event_logs_portal_id_fkey", portalId, Portals)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)
+  }
+  /** Collection-like TableQuery object for table PortalEventLogs */
+  lazy val PortalEventLogs = new TableQuery(tag => new PortalEventLogs(tag))
   
   /** Entity class storing rows of table Portals
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey

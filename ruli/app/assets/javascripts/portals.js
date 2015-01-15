@@ -4,14 +4,17 @@ $(function(){
   // パネルの切り替え
 
   (function(){
-    var panels = [ "portal", "new_portal" ];
+    var panels = [ "events", "portal", "new_portal" ];
     $.each(panels, function(i, value){
       $("#menu_" + value).click(function(){
-        $.each(panels, function(j, value2){ $("#" + value2).hide(); });
-        $("#" + value).show();
+        $.each(panels, function(j, value2){ $("#main_" + value2).hide(); });
+        $("#main_" + value).show();
       });
     });
   })();
+
+  // #####################################
+
 
   // #####################################
 
@@ -28,7 +31,6 @@ $(function(){
    * 現在時刻からの相対時間に変換。
   */
   function relativeDateTime(dt){
-    alert(dt);
     var sec = (new Date().getTime() - dt.getTime()) / 1000;
     if(sec < 5)  return "今";
     if(sec < 60)  return (Math.floor(sec/5)*5) + "秒前";

@@ -2,9 +2,31 @@
 
 @main("Welcome to Play") {
 
-<div class="page-header" id="portal">
+<div class="page-header" id="main_events">
     <div class="row">
-        <div class="col-lg-12">
+        <div class="col-md-12">
+            <h1>ポータルイベントログ</h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>ポータル <small>(<span id="portal_count">0</span>)</small></th>
+                </tr>
+                </thead>
+                <tbody id="events">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="page-header" id="main_portal" style="display:none;">
+    <div class="row">
+        <div class="col-md-12">
             <h1>Portals</h1>
             <!--
             <p class="lead">クロールに穴が無いかを確認する。</p>
@@ -28,7 +50,7 @@
         </div>
     </div>
     <div class="row">
-        <div class="col-lg-8">
+        <div class="col-md-8">
             <table class="table table-striped" style="height:480px;overflow:scroll;">
                 <thead>
                 <tr>
@@ -40,12 +62,11 @@
                 </tbody>
             </table>
         </div>
-        <div class="col-lg-4">
+        <div class="col-md-4">
             <a href="#" class="thumbnail">
                 <canvas id="plot_area" width="320" height="480"></canvas>
             </a>
         </div>
     </div>
 </div>
-
 }

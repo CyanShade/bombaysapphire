@@ -74,7 +74,53 @@ object Application extends Controller {
     Ok(Json.toJson(portals))
   }
 
-  case class Portal(id:Int, title:String, image:String, latlng:List[Double], country:String, state:String, city:String, created_at:String)
+  def regions = Action {
+    Ok(views.html.index("Your new application is ready."))
+  }
+
+  /**
+   * ポータルのイベントを JSON 形式で返す。
+   * p:ページ番号
+   * i:1ページあたりの項目数
+   */
+  def events = DBAction { implicit rs =>
+    implicit val session = rs.dbSession
+    val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
+    val page = rs.request.queryString.get("p").flatMap{ p => Try(p(0).toInt).toOption }.getOrElse(0)
+    val items = rs.request.queryString.get("i").flatMap{ i => Try(i(0).toInt).toOption }.getOrElse(15)
+    val json = Json.obj(
+      "page" -> page,
+      "items_per_page" -> items,
+      "items" -> Tables.PortalEventLogs
+        .leftJoin(Tables.Portals).on{ _.portalId === _.id }
+        .leftJoin(Tables.Geohash).on{ _._2.geohash === _.geohash}
+        .sortBy{ case ((event,_),_) => event.createdAt.desc }
+        .drop(page * items).take(items).list
+        .map{ case ((event, portal), geohash) =>
+          Json.obj(
+            "id" -> event.id,
+            "portal_id" -> portal.id,
+            "title" -> portal.title,
+            "image" -> portal.image,
+            "latlng" -> Json.arr( portal.late6/1e6, portal.lnge6/1e6 ),
+            "country" -> geohash.country,
+            "state" -> geohash.state,
+            "city" -> geohash.city,
+            "action" -> event.action,
+            "old_value" -> event.oldValue,
+            "new_value" -> event.newValue,
+            "message" -> (event.action match {
+              case "create" => s"新規ポータル '${portal.title}' を検出しました"
+              case "remove" => s"ポータル '${portal.title}' が削除されました"
+              case "change_title" => s"ポータル '${event.oldValue}' の名称が '${event.newValue}' に変更されました"
+              case unknown => unknown
+            }),
+            "created_at" -> df.format(event.createdAt)
+          )
+        }.toSeq
+      )
+    Ok(Json.toJson(json))
+  }
 
   class BadRequest(msg:String) extends Exception(msg)
 
