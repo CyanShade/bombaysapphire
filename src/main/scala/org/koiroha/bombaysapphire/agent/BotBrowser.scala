@@ -141,6 +141,7 @@ class BotBrowser extends Application {
           logger.info(f"${t/60/1000}%,d分${t/1000}%d秒でクロールを終了しました")
           primaryStage.close()
           proxy.close()
+          System.exit(0)
         }
       })
       override def accept(e:WebEngine):Unit = scenario.next()
@@ -206,7 +207,7 @@ class BotBrowser extends Application {
           case Some(a: Element) =>
             val url = a.getAttribute("href")
             engine.load(url)
-            logger.info(s"初期ページ表示: $url")
+            logger.info(s"初期ページ表示完了: NEXT -> $url")
           case _ =>
             logger.error(s"初期ページに Sign-in ボタンが見付かりません")
             browser.close()
