@@ -4,7 +4,9 @@
 
 # Home page
 GET     /                           controllers.Application.index
+GET     /portal/nearlies            controllers.Application.index
 GET     /portal/locations           controllers.Application.locations
+GET     /portal/eventlogs           controllers.Application.eventlogs
 GET     /portal/events              controllers.Application.events
 GET     /regions                    controllers.Application.regions
 

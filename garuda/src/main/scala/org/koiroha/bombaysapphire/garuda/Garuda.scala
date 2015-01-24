@@ -14,8 +14,8 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.koiroha.bombaysapphire.GarudaAPI
 import org.koiroha.bombaysapphire.garuda.Entities.Portal
-import org.koiroha.bombaysapphire.geom.{LatLng, Polygon, Rectangle, Region}
 import org.koiroha.bombaysapphire.garuda.schema.Tables
+import org.koiroha.bombaysapphire.geom.{LatLng, Polygon, Rectangle, Region}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -151,8 +151,8 @@ class Garuda(context:Context) extends GarudaAPI {
 			// 削除されたポータルの検出と削除
 			val avails = Tables.Portals.filter{ p => p.tileKey === tileKey && p.deletedAt.isEmpty }.map{ p => p.guid }.run
 			avails.intersect(rm.deletedGameEntityGuids).foreach { guid =>
-				val (id, latE6, lngE6, title, geohash) = Tables.Portals.filter{ p => p.guid === guid }
-					.map { p => (p.id, p.late6, p.lnge6, p.title, p.geohash)
+				val (id, latE6, lngE6, title, geohash, verifiedAt) = Tables.Portals.filter{ p => p.guid === guid }
+					.map { p => (p.id, p.late6, p.lnge6, p.title, p.geohash, p.verifiedAt)
 				}.first
 				val location = Tables.Geohash.filter { g => g.geohash === geohash}
 					.map { g => (g.country, g.state, g.city)
@@ -162,8 +162,11 @@ class Garuda(context:Context) extends GarudaAPI {
 				}
 				notice(latE6, lngE6,
 					s"ポータルの消失を検出しました: $title$location", "portal_removed", id.toString)
-				Tables.Portals.filter{ p => p.guid === guid && p.deletedAt.isEmpty }.map{ p => p.deletedAt }.update(Some(tm))
-				savePortalEvent(id, "remove", None, None, tm)
+				Tables.Portals
+					.filter{ p => p.guid === guid && p.deletedAt.isEmpty }
+					.map{ p => (p.verifiedAt, p.deletedAt) }
+					.update((tm, Some(tm)))
+				savePortalEvent(id, "remove", verifiedAt, tm)
 			}
 			// 各種エンティティの保存
 			tileKey -> rm.gameEntities.map {
@@ -207,16 +210,17 @@ class Garuda(context:Context) extends GarudaAPI {
 		Tables.Portals.filter{ p => p.guid === cp.guid && p.deletedAt.isEmpty }.firstOption match {
 			case Some(p) =>
 				val record = Tables.Portals.filter{ x => x.id === p.id }
+				val verifiedAt = p.verifiedAt
 				// 画像 URL の変更
 				if(p.image != cp.image){
 					record.map{ p => (p.image,p.updatedAt) }.update((cp.image,tm))
-					savePortalEvent(p.id, "change_image", Some(p.image), Some(cp.image), tm)
+					savePortalEvent(p.id, "change_image", p.image, cp.image, verifiedAt, tm)
 					logger.info(s"画像URLを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
 				}
 				// タイトルの変更
 				if(p.title != cp.title){
 					record.map{ p => (p.title,p.updatedAt) }.update((cp.title,tm))
-					savePortalEvent(p.id, "change_title", Some(p.title), Some(cp.title), tm)
+					savePortalEvent(p.id, "change_title", p.title, cp.title, verifiedAt, tm)
 					logger.info(s"タイトルを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${p.title} -> ${cp.title}")
 				}
 				// 位置の変更
@@ -224,7 +228,7 @@ class Garuda(context:Context) extends GarudaAPI {
 					record.map{ x =>
 						(x.late6,x.lnge6,x.updatedAt)
 					}.update((cp.latE6,cp.lngE6,tm))
-					savePortalEvent(p.id, "change_location", Some(p.late6 + "," + p.lnge6), Some(cp.latE6 + "," + cp.lngE6), tm)
+					savePortalEvent(p.id, "change_location", s"${p.late6/1e6},${p.lnge6/1e6}", s"${cp.latE6/1e6},${cp.lngE6/1e6}", verifiedAt, tm)
 					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6)
 					logger.info(s"位置を変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}")
 				}
@@ -242,7 +246,7 @@ class Garuda(context:Context) extends GarudaAPI {
 					Tables.Portals.map{ x =>
 						(x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
 					}.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
-					savePortalEvent(Tables.Portals.filter{ _.guid === cp.guid }.map{ _.id }.first, "create", None, None, tm)
+					savePortalEvent(Tables.Portals.filter{ _.guid === cp.guid }.map{ _.id }.first, "create", tm)
 					setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6).onComplete{
 						case Success(Some(l)) =>
 							logger.info(s"新規ポータルが登録されました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${l.city}, ${l.state}, ${l.country}")
@@ -260,9 +264,12 @@ class Garuda(context:Context) extends GarudaAPI {
 	/**
 	 * ポータルの状況変更をイベントログへ保存。
 	 */
-	private[this] def savePortalEvent(portalId:Int, action:String, oldValue:Option[String], newValue:Option[String], tm:Timestamp)(implicit session:Session):Unit = Tables.PortalEventLogs.map{ x =>
-		(x.portalId, x.action, x.oldValue, x.newValue, x.createdAt)
-	}.insert((portalId, action, oldValue, newValue, tm))
+	private[this] def savePortalEvent(portalId:Int, action:String, oldValue:String, newValue:String, verifiedAt:Timestamp, tm:Timestamp)(implicit session:Session):Unit = savePortalEvent(portalId, action, Some(oldValue), Some(newValue), Some(verifiedAt), tm)
+	private[this] def savePortalEvent(portalId:Int, action:String, tm:Timestamp)(implicit session:Session):Unit = savePortalEvent(portalId, action, None, None, None, tm)
+	private[this] def savePortalEvent(portalId:Int, action:String, verifiedAt:Timestamp, tm:Timestamp)(implicit session:Session):Unit = savePortalEvent(portalId, action, None, None, Some(verifiedAt), tm)
+	private[this] def savePortalEvent(portalId:Int, action:String, oldValue:Option[String], newValue:Option[String], verifiedAt:Option[Timestamp], tm:Timestamp)(implicit session:Session):Unit = Tables.PortalEventLogs.map{ x =>
+		(x.portalId, x.action, x.oldValue, x.newValue, x.verifiedAt, x.createdAt)
+	}.insert((portalId, action, oldValue, newValue, verifiedAt, tm))
 
 	private[this] def getContentAsJSON(httpMessage:String):JValue = httpMessage.split("\n\n", 2) match {
 		case Array(_) => JNull

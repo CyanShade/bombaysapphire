@@ -1,3 +1,5 @@
+import play.PlayScala
+
 name := """play-scala"""
 
 version := "1.0-SNAPSHOT"

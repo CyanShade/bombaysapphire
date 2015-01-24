@@ -79,7 +79,7 @@ package object geom {
 
 		def union(r: Rectangle): Rectangle = {
 			val rx = r.rect.createUnion(this.rect)
-			Rectangle(rx.getY + rx.getHeight, rx.getX + rx.getWidth, rx.getY, rx.getX)
+			Rectangle(rx.getX + rx.getWidth, rx.getY + rx.getHeight, rx.getX, rx.getY)
 		}
 
 		lazy val center: LatLng = LatLng((north + south) / 2.0, (east + west) / 2.0)

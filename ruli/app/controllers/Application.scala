@@ -3,22 +3,24 @@ package controllers
 import java.sql.Timestamp
 import java.text.{DateFormat, SimpleDateFormat}
 
-import play.api._
+import models.Tables
+import org.slf4j.LoggerFactory
+import play.api.db.slick.DBAction
 import play.api.libs.json._
 import play.api.mvc._
-import play.api.db.slick.DBAction
-import org.slf4j.LoggerFactory
+
 import scala.slick.driver.PostgresDriver.simple._
-
-import models.Tables
-
 import scala.util.Try
 
 object Application extends Controller {
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
   def index = Action {
-    Ok(views.html.index("Your new application is ready."))
+    Ok(views.html.portals())
+  }
+
+  def eventlogs = Action {
+    Ok(views.html.eventlogs())
   }
 
   def locations = DBAction { implicit rs =>
@@ -88,9 +90,12 @@ object Application extends Controller {
     val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
     val page = rs.request.queryString.get("p").flatMap{ p => Try(p(0).toInt).toOption }.getOrElse(0)
     val items = rs.request.queryString.get("i").flatMap{ i => Try(i(0).toInt).toOption }.getOrElse(15)
+    val count = Tables.PortalEventLogs.length.run
     val json = Json.obj(
       "page" -> page,
       "items_per_page" -> items,
+      "max_page" -> math.max(0, (count - 1) / items),
+      "items_count" -> count,
       "items" -> Tables.PortalEventLogs
         .leftJoin(Tables.Portals).on{ _.portalId === _.id }
         .leftJoin(Tables.Geohash).on{ _._2.geohash === _.geohash}
@@ -115,6 +120,7 @@ object Application extends Controller {
               case "change_title" => s"ポータル '${event.oldValue}' の名称が '${event.newValue}' に変更されました"
               case unknown => unknown
             }),
+            "verified_at" -> event.verifiedAt.map{ df.format },
             "created_at" -> df.format(event.createdAt)
           )
         }.toSeq

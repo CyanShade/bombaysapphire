@@ -1,4 +1,4 @@
-@(title: String)(content: Html)
+@(id:String)(content:Html)
 
 <!DOCTYPE html>
 <html lang="ja">
@@ -12,7 +12,8 @@
   <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/slate.css")">
   <script src="//code.jquery.com/jquery-1.11.2.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
-  <script src="@routes.Assets.at("javascripts/portals.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("javascripts/share.js")" type="text/javascript"></script>
+  <script src="@routes.Assets.at(s"javascripts/$id.js")" type="text/javascript"></script>
 </head>
 <body>
     <div class="navbar navbar-default navbar-fixed-top">
@@ -30,9 +31,8 @@
                     <li class="dropdown">
                         <a class="dropdown-toggle" data-toggle="dropdown" href="#" id="themes">Features <span class="caret"></span></a>
                         <ul class="dropdown-menu" aria-labelledby="themes">
-                            <li><a href="#" id="menu_events" onclick="return false;">イベントログ</a></li>
-                            <li><a href="#" id="menu_portal" onclick="return false;">Portals</a></li>
-                            <li><a href="#" id="menu_new_portal" onclick="return false;">New Portals</a></li>
+                            <li><a href="/portal/eventlogs">Portal Events</a></li>
+                            <li><a href="/portal/nearlies">Portals</a></li>
                             <li class="divider"></li>
                         </ul>
                     </li>

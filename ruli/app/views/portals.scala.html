@@ -1,36 +1,8 @@
-@(message: String)
-
-@main("Welcome to Play") {
-
-<div class="page-header" id="main_events">
-    <div class="row">
-        <div class="col-md-12">
-            <h1>ポータルイベントログ</h1>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-12">
-            <table class="table table-striped">
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>ポータル <small>(<span id="portal_count">0</span>)</small></th>
-                </tr>
-                </thead>
-                <tbody id="events">
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="page-header" id="main_portal" style="display:none;">
+@main("portals") {
+<div class="page-header" id="main_portal">
     <div class="row">
         <div class="col-md-12">
             <h1>Portals</h1>
-            <!--
-            <p class="lead">クロールに穴が無いかを確認する。</p>
-            -->
             <form class="form-inline" id="search_form">
                 <div class="form-group form-group-sm">
                     <input type="datetime" class="form-control" id="created_at&gt;" name="created_at&gt;" placeholder="From">
