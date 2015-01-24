@@ -1,7 +1,7 @@
 
-organization := "org.koiroha"
+organization := "org.koiroha.bombaysapphire"
 
-name := "bombaysapphire-share"
+name := "share"
 
 version := "1.0.0-SNAPSHOT"
 
