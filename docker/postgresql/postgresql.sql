@@ -60,6 +60,7 @@ create table intel.portal_event_logs(
   action varchar not null,
   old_value varchar,
   new_value varchar,
+  verified_at timestamp,
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 

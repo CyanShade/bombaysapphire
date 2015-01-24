@@ -59,7 +59,7 @@ class Server(context:Context, address:String, port:Int) {
 		val store = s"$prefix/logs/([a-zA-Z0-9]+)".r
 		val tileKeys = s"$prefix/tile_keys\\?r=(.+)".r
 		val administrativeDistricts = s"$prefix/administrative_districts".r
-		val administrativeDistrict = s"$prefix/administrative_district?(.*)".r
+		val administrativeDistrict = s"$prefix/administrative_district\\?(.*)".r
 		def apply(request:HttpRequest):Future[HttpResponse] = {
 			request.getUri match {
 				case store(method) =>
@@ -123,6 +123,7 @@ class Server(context:Context, address:String, port:Int) {
 					context.garuda.administrativeDistrict(country, state, city).map{
 						case Some(region) =>
 							val content = ChannelBuffers.dynamicBuffer()
+							content.writeString(region.name)
 							content.writeInt(region.shapes.size)
 							region.shapes.foreach{
 								case poly:Polygon =>

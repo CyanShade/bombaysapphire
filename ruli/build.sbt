@@ -1,3 +1,5 @@
+import play.PlayScala
+
 organization := "org.koiroha.bombaysapphire"
 
 name := "ruli"

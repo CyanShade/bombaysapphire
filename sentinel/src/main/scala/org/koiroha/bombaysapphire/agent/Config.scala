@@ -57,7 +57,7 @@ case class Config(config:Map[String,String]) {
       Await.result(f, Duration.Inf) match {
         case Some(reg) => reg
         case None =>
-          logger.error(s"指定された行政区はサーバで定義されていません")
+          logger.error(s"指定された行政区 ${district.mkString(",")} はサーバに定義されていません")
           throw new IllegalStateException(s"specified administrative district is not defined")
       }
     case Some(("local", district)) =>
