@@ -1,4 +1,6 @@
-name := """play-scala"""
+organization := "org.koiroha.bombaysapphire"
+
+name := "ruli"
 
 version := "1.0-SNAPSHOT"
 
