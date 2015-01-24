@@ -5,11 +5,12 @@
 */
 package org.koiroha.bombaysapphire.garuda
 
-import java.io.{FileInputStream, File}
-import java.util.{Properties, Locale}
+import java.io.File
+import java.util.Locale
+
+import org.koiroha.bombaysapphire.Config
 
 import scala.slick.driver.PostgresDriver.simple._
-import scala.collection.JavaConversions._
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Context
@@ -17,7 +18,7 @@ import scala.collection.JavaConversions._
 /**
  * @author Takami Torao
  */
-class Context(config:Map[String,String]) {
+class Context(config:Config) {
 
 	val garuda = new Garuda(this)
 
@@ -48,14 +49,9 @@ class Context(config:Map[String,String]) {
 		val language = config.getOrElse("locale.language", Locale.getDefault.getLanguage)
 	}
 
-
 	val geocode = new GeoCode(this)
 }
 
 object Context {
-	def apply(file:File):Context = org.koiroha.bombaysapphire.io.using(new FileInputStream(file)){ in =>
-		val prop = new Properties()
-		prop.load(in)
-		new Context(prop.toMap)
-	}
+	def apply(file:File):Context = new Context(Config(file))
 }
