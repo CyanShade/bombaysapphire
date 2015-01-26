@@ -196,18 +196,19 @@ trait Tables {
    *  @param action Database column action DBType(varchar), Length(2147483647,true)
    *  @param oldValue Database column old_value DBType(varchar), Length(2147483647,true), Default(None)
    *  @param newValue Database column new_value DBType(varchar), Length(2147483647,true), Default(None)
-   *  @param createdAt Database column created_at DBType(timestamp) */
-  case class PortalEventLogsRow(id: Int, portalId: Int, action: String, oldValue: Option[String] = None, newValue: Option[String] = None, createdAt: java.sql.Timestamp)
+   *  @param createdAt Database column created_at DBType(timestamp)
+   *  @param verifiedAt Database column verified_at DBType(timestamp), Default(None) */
+  case class PortalEventLogsRow(id: Int, portalId: Int, action: String, oldValue: Option[String] = None, newValue: Option[String] = None, createdAt: java.sql.Timestamp, verifiedAt: Option[java.sql.Timestamp] = None)
   /** GetResult implicit for fetching PortalEventLogsRow objects using plain SQL queries */
-  implicit def GetResultPortalEventLogsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp]): GR[PortalEventLogsRow] = GR{
+  implicit def GetResultPortalEventLogsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Option[String]], e3: GR[java.sql.Timestamp], e4: GR[Option[java.sql.Timestamp]]): GR[PortalEventLogsRow] = GR{
     prs => import prs._
-    PortalEventLogsRow.tupled((<<[Int], <<[Int], <<[String], <<?[String], <<?[String], <<[java.sql.Timestamp]))
+    PortalEventLogsRow.tupled((<<[Int], <<[Int], <<[String], <<?[String], <<?[String], <<[java.sql.Timestamp], <<?[java.sql.Timestamp]))
   }
   /** Table description of table portal_event_logs. Objects of this class serve as prototypes for rows in queries. */
   class PortalEventLogs(_tableTag: Tag) extends Table[PortalEventLogsRow](_tableTag, Some("intel"), "portal_event_logs") {
-    def * = (id, portalId, action, oldValue, newValue, createdAt) <> (PortalEventLogsRow.tupled, PortalEventLogsRow.unapply)
+    def * = (id, portalId, action, oldValue, newValue, createdAt, verifiedAt) <> (PortalEventLogsRow.tupled, PortalEventLogsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, portalId.?, action.?, oldValue, newValue, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalEventLogsRow.tupled((_1.get, _2.get, _3.get, _4, _5, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, portalId.?, action.?, oldValue, newValue, createdAt.?, verifiedAt).shaped.<>({r=>import r._; _1.map(_=> PortalEventLogsRow.tupled((_1.get, _2.get, _3.get, _4, _5, _6.get, _7)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -221,6 +222,8 @@ trait Tables {
     val newValue: Column[Option[String]] = column[Option[String]]("new_value", O.Length(2147483647,varying=true), O.Default(None))
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    /** Database column verified_at DBType(timestamp), Default(None) */
+    val verifiedAt: Column[Option[java.sql.Timestamp]] = column[Option[java.sql.Timestamp]]("verified_at", O.Default(None))
     
     /** Foreign key referencing Portals (database name portal_event_logs_portal_id_fkey) */
     lazy val portalsFk = foreignKey("portal_event_logs_portal_id_fkey", portalId, Portals)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)

@@ -1,7 +1,7 @@
 package org.koiroha.bombaysapphire.agent
 
 import java.io.IOException
-import java.net.URL
+import java.net.{URLEncoder, URL}
 
 import com.twitter.finagle.builder.ClientBuilder
 import com.twitter.finagle.http.RequestBuilder
@@ -78,7 +78,7 @@ class GarudaAPI(url:URL) extends org.koiroha.bombaysapphire.GarudaAPI {
   /** 行政区指定の巡回に対する領域の問い合わせ */
   def administrativeDistrict(country:String, state:String, city:String):SFuture[Option[Region]] = {
     val request = RequestBuilder()
-      .url(s"$url/administrative_district?c=$country&s=$state&ct=$city")
+      .url(s"$url/administrative_district?c=${country.toURLEncode}&s=${state.toURLEncode}&ct=${city.toURLEncode}")
       .build(HttpMethod.GET, None)
     val promise = Promise[Option[Region]]()
     client(request).onSuccess{ response =>
@@ -127,4 +127,7 @@ class GarudaAPI(url:URL) extends org.koiroha.bombaysapphire.GarudaAPI {
 }
 object GarudaAPI {
   private[GarudaAPI] val logger = LoggerFactory.getLogger(classOf[GarudaAPI])
+  private[GarudaAPI] implicit class _String(s:String){
+    def toURLEncode:String = URLEncoder.encode(s, "UTF-8")
+  }
 }

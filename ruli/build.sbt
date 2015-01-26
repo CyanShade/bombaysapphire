@@ -1,4 +1,8 @@
-name := """play-scala"""
+import play.PlayScala
+
+organization := "org.koiroha.bombaysapphire"
+
+name := "ruli"
 
 version := "1.0-SNAPSHOT"
 

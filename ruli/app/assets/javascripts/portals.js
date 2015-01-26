@@ -15,6 +15,60 @@ $(function(){
 
   // #####################################
 
+  $(function(){
+    var page = 0;
+    var items = 50;
+    var query = "p=" + page + "&i=" + items;
+    $.getJSON("/portal/events?" + query, function(json){
+      $.each(json.items, function(i, item){
+        var message = $("<div/>");
+        switch(item.action){
+        case "create":
+          message.attr("class", "text-info")
+            .append("新規ポータル \"").append($("<b/>").text(item.title)).append("\" が追加されました。");
+          break;
+        case "remove":
+          message.attr("class", "text-danger")
+            .append("ポータル \"").append($("<b/>").text(item.title)).append("\" が削除されました。");
+          break;
+        case "change_title":
+          message.attr("class", "text-mute")
+            .append("ポータル \"" + item.old_value + "\" の名前が \"").append($("<b/>").text(item.new_value)).append("\" に変更されました。");
+          break;
+        case "change_image":
+          message.attr("class", "text-mute")
+            .append("ポータル \"" + item.title + "\" の画像が ")
+            .append(create_image(item.title, item.old_value, "3ex"))
+            .append(" から ")
+            .append(create_image(item.title, item.new_value, "3ex"))
+            .append(" に変更されました。");
+          break;
+        case "change_location":
+          var o = item.old_value.split(",", 2);
+          var n = item.new_value.split(",", 2);
+          message.attr("class", "text-mute")
+            .append("ポータル \"" + item.title + "\" の位置が ")
+            .append(create_location_link(item.old_value, o[0], o[1]))
+            .append(" から ")
+            .append(create_location_link(item.new_value, n[0], n[1]))
+            .append(" に変更されました。");
+          break;
+        default:
+          message.text(item.action);
+          break;
+        }
+        var info = $("<div/>")
+          .attr("style", "font-size:smaller;")
+          .append(create_address_link(item.country, item.state, item.city, item.latlng[0], item.latlng[1]))
+          .append(" ")
+          .append(create_timestamp(this.created_at));
+        $("#events")
+          .append($("<tr/>")
+            .append($("<td/>").append(message).append(info)));
+      });
+    });
+  });
+
 
   // #####################################
 
@@ -49,6 +103,38 @@ $(function(){
     var hour = parseInt(RegExp.$4);
     var minute = parseInt(RegExp.$5);
     return new Date(year, month - 1, date, hour, minute);
+  }
+
+  /** リンク付きの住所情報要素を構築。 */
+  function create_address_link(country, state, city, lat, lng){
+    return create_location_link(city + ", " + state + ", " + country, lat, lng);
+  }
+
+  /** リンク付きの住所情報要素を構築。 */
+  function create_location_link(label, lat, lng){
+    return $("<a/>")
+      .attr("href", "https://" + RemoteHost + "/intel?pll=" + lat + "," + lng + "&z=17")
+      .attr("target", "intel")
+      .attr("title", lat + "/" + lng)
+      .text(label);
+  }
+
+  /** 時刻要素を構築。 */
+  function create_timestamp(tm){
+    return $("<span/>")
+      .attr("title", tm)
+      .text(relativeDateTime(stringToDate(tm)));
+  }
+
+  /** 画像要素を構築。 */
+  function create_image(title, src, height){
+    return $("<a/>")
+      .attr("href", src)
+      .append($("<img/>")
+        .attr("src", src)
+        .attr("title", title)
+        .attr("border", "0")
+        .attr("style", (height===null)? "": "height:" + height + ";"));
   }
 
   /**
@@ -106,20 +192,12 @@ $(function(){
           )
           .append($("<h4/>").append(this.title))
           .append($("<p/>")
-            .append($("<a/>")
-              .attr("href", "https://" + RemoteHost + "/intel?ll=" + this.latlng[0] + "," + this.latlng[1] + "&z=17")
-              .attr("target", "intel")
-              .attr("title", this.latlng[0] + "/" + this.latlng[1])
-              .text(this.city + ", " + this.state + ", " + this.country)
-            )
+            .append(create_address_link(this.country, this.state, this.city, this.latlng[0], this.latlng[1]))
             .append($("<span/>")
               .attr("style", "font-size:0px;")  // コピペ時に現れる隠しテキストとして
-              .text(" https://" + RemoteHost + "/intel?ll=" + this.latlng[0] + "," + this.latlng[1] + "&z=17")
+              .text(" https://" + RemoteHost + "/intel?pll=" + this.latlng[0] + "," + this.latlng[1] + "&z=17")
             )
-            .append($("<span/>")
-              .attr("title", this.created_at)
-              .text(" " + relativeDateTime(stringToDate(this.created_at)))
-            )
+            .append(create_timestamp(this.created_at))
           )
         )
       );
@@ -152,7 +230,7 @@ $(function(){
       longitude = position.coords.longitude;
       var location = $("#current_location");
       var goecode = "http://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=false";
-      var mapurl = "https://" + RemoteHost + "/intel?ll=" + latitude + "," + longitude + "&z=17";
+      var mapurl = "https://" + RemoteHost + "/intel?pll=" + latitude + "," + longitude + "&z=17";
       location.empty().append($("<a/>")
        .attr("href", mapurl)
        .attr("target", "intel")

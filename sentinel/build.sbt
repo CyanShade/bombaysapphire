@@ -1,7 +1,7 @@
 
-organization := "org.koiroha"
+organization := "org.koiroha.bombaysapphire"
 
-name := "bombaysapphire-sentinel"
+name := "sentinel"
 
 version := "1.0.0-SNAPSHOT"
 
