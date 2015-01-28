@@ -60,7 +60,8 @@ class Server(context:Context, address:String, port:Int) {
 		val tileKeys = s"$prefix/tile_keys\\?r=(.+)".r
 		val administrativeDistricts = s"$prefix/administrative_districts".r
 		val administrativeDistrict = s"$prefix/administrative_district\\?(.*)".r
-		def apply(request:HttpRequest):Future[HttpResponse] = {
+		def apply(request:HttpRequest):Future[HttpResponse] = try {
+			logger.trace(s"accept: ${request.getUri}")
 			request.getUri match {
 				case store(method) =>
 					val tm = request.getTimestamp
@@ -144,6 +145,10 @@ class Server(context:Context, address:String, port:Int) {
 					}
 					promise
 			}
+		} catch {
+			case ex:Throwable =>
+				logger.error(s"server error", ex)
+				Future.value(response(500, "Internal Server Error", "text/plain", cache=false))
 		}
 	}
 

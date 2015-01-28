@@ -20,6 +20,7 @@ import org.koiroha.bombaysapphire.agent.EmbeddedProxy.Stub
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
+import scala.util.Try
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // EmbeddedProxy
@@ -57,7 +58,7 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
           val start = System.currentTimeMillis()
           Client(proxyRequest).filter{ r =>
             val time = System.currentTimeMillis() - start
-            logger.debug(f"${r.getStatus.getCode}%s ${r.getStatus.getReasonPhrase}%s (${request.getUri}%s; $time%,d[ms])")
+            logger.debug(f"${r.getStatus.getCode}%s ${r.getStatus.getReasonPhrase}%s (${request.getUri}%s; $time%,d[ms]; ${Option(r.headers().get("Content-Length")).flatMap{l=>Try(l.toLong).toOption}.getOrElse(0L)/1024}%,d[kB])")
             save(name, proxyRequest, r)
             true
           }

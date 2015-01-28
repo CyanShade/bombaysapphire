@@ -34,9 +34,12 @@ class Config private[this](parent:Option[Config], config:Map[String,String]) {
 	def get(key:String):Option[String] = {
 		Option(formatted.computeIfAbsent(key, new Function[String,String](){
 			override def apply(key:String):String = {
-				val value = config.get(key).map { fmt => format(fmt)}.orElse(parent.flatMap{ _.get(key) }).orNull
-				logger.debug(s"$key = $value")
-				value
+				config.get(key).map { fmt => format(fmt)}.orElse(parent.flatMap{ _.get(key) }) match {
+					case Some(value) =>
+						logger.debug(s"$key = $value")
+						value
+					case None => null
+				}
 			}
 		}))
 	}

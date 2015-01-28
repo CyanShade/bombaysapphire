@@ -103,6 +103,7 @@ class Garuda(context:Context) extends GarudaAPI {
 				logger.trace(s"  res: ${trim(r,16*1024)}")
 			}
 		}
+		val start = System.currentTimeMillis()
 		val tm = new Timestamp(timestamp)
 		// デバッグや分析に不要な大量のゴミ情報を除去
 		def _parse(s:String) = parse(s).transformField{
@@ -129,9 +130,13 @@ class Garuda(context:Context) extends GarudaAPI {
 			case _ =>
 				logger.warn(s"unexpected method: $method; $request")
 				resJson.asInstanceOf[JObject].values.get("result")
-		}) foreach { obj =>
-			val str = obj.toString
-			logger.trace(s"${if(str.length>5000) str.substring(0,5000) else str}")
+		}) match {
+			case Some(obj) =>
+				val str = obj.toString
+				logger.debug(f"${System.currentTimeMillis()-start}%,d[ms]: ${if(str.length>5000) str.substring(0,5000) else str}")
+			case None =>
+				val str = response
+				logger.warn(f"${System.currentTimeMillis()-start}%,d[ms]: parse error: $method; ${if(str.length>5000) str.substring(0,5000) else str}")
 		}
 	}
 
@@ -173,7 +178,7 @@ class Garuda(context:Context) extends GarudaAPI {
 				case cp:Portal =>
 					if(savePortal(tm, tileKey, cp)) (1, 1) else (0, 1)
 				case _ => (0, 0)
-			}.reduceLeft{ (a, b) => (a._1+b._1, a._2+b._2) }
+			}.reduceLeftOption{ (a, b) => (a._1+b._1, a._2+b._2) }.getOrElse((0, 0))
 		}.toSeq.sortBy{ _._1 }
 		val time = System.currentTimeMillis() - start
 		portalReport.foreach{ case (tileKey, (newPortals, portals)) =>
@@ -299,7 +304,13 @@ class Garuda(context:Context) extends GarudaAPI {
 	}
 
 	private[this] def future[T](exec:(PostgresDriver.backend.Session)=>T):Future[T] = Future {
-		context.database.withSession { exec }
+		try {
+			context.database.withSession { exec }
+		} catch {
+			case ex:Throwable =>
+				logger.error(s"unexpected error", ex)
+				throw ex
+		}
 	}
 
 	private[this] def trim(s:String, len:Int):String = if(s.length <= len) s else {
