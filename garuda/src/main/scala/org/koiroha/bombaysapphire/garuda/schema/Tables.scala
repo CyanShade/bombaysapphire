@@ -14,7 +14,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table Agents
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
@@ -169,6 +169,55 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table Logs */
   lazy val Logs = new TableQuery(tag => new Logs(tag))
+  
+  /** Entity class storing rows of table Plexts
+   *  @param id Database column id DBType(bigserial), AutoInc, PrimaryKey
+   *  @param guid Database column guid DBType(varchar), Length(2147483647,true)
+   *  @param unknown Database column unknown DBType(float8)
+   *  @param category Database column category DBType(int4)
+   *  @param markup Database column markup DBType(jsonb), Length(2147483647,false)
+   *  @param plextType Database column plext_type DBType(varchar), Length(2147483647,true)
+   *  @param team Database column team DBType(bpchar), Length(1,false)
+   *  @param text Database column text DBType(varchar), Length(2147483647,true)
+   *  @param createdAt Database column created_at DBType(timestamp) */
+  case class PlextsRow(id: Long, guid: String, unknown: Double, category: Int, markup: String, plextType: String, team: String, text: String, createdAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching PlextsRow objects using plain SQL queries */
+  implicit def GetResultPlextsRow(implicit e0: GR[Long], e1: GR[String], e2: GR[Double], e3: GR[Int], e4: GR[java.sql.Timestamp]): GR[PlextsRow] = GR{
+    prs => import prs._
+    PlextsRow.tupled((<<[Long], <<[String], <<[Double], <<[Int], <<[String], <<[String], <<[String], <<[String], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table plexts. Objects of this class serve as prototypes for rows in queries. */
+  class Plexts(_tableTag: Tag) extends Table[PlextsRow](_tableTag, Some("intel"), "plexts") {
+    def * = (id, guid, unknown, category, markup, plextType, team, text, createdAt) <> (PlextsRow.tupled, PlextsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, guid.?, unknown.?, category.?, markup.?, plextType.?, team.?, text.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PlextsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(bigserial), AutoInc, PrimaryKey */
+    val id: Column[Long] = column[Long]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column guid DBType(varchar), Length(2147483647,true) */
+    val guid: Column[String] = column[String]("guid", O.Length(2147483647,varying=true))
+    /** Database column unknown DBType(float8) */
+    val unknown: Column[Double] = column[Double]("unknown")
+    /** Database column category DBType(int4) */
+    val category: Column[Int] = column[Int]("category")
+    /** Database column markup DBType(jsonb), Length(2147483647,false) */
+    val markup: Column[String] = column[String]("markup", O.Length(2147483647,varying=false))
+    /** Database column plext_type DBType(varchar), Length(2147483647,true) */
+    val plextType: Column[String] = column[String]("plext_type", O.Length(2147483647,varying=true))
+    /** Database column team DBType(bpchar), Length(1,false) */
+    val team: Column[String] = column[String]("team", O.Length(1,varying=false))
+    /** Database column text DBType(varchar), Length(2147483647,true) */
+    val text: Column[String] = column[String]("text", O.Length(2147483647,varying=true))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    
+    /** Uniqueness Index over (guid) (database name plexts_guid) */
+    val index1 = index("plexts_guid", guid, unique=true)
+    /** Uniqueness Index over (guid) (database name plexts_guid_key) */
+    val index2 = index("plexts_guid_key", guid, unique=true)
+  }
+  /** Collection-like TableQuery object for table Plexts */
+  lazy val Plexts = new TableQuery(tag => new Plexts(tag))
   
   /** Entity class storing rows of table PortalEventLogs
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey

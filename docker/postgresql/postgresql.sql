@@ -86,3 +86,18 @@ create table intel.portal_state_logs(
   mods jsonb,
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
+
+create table intel.plexts(
+  id bigserial not null primary key,
+  guid varchar not null unique,
+  unknown float not null,
+  category integer not null,
+  markup jsonb not null,
+  plext_type varchar not null,
+  team char(1) not null,
+  text varchar not null,
+  created_at timestamp not null default current_timestamp
+);
+
+create unique index plexts_guid on intel.plexts(guid);
+
