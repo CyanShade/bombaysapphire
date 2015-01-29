@@ -36,7 +36,7 @@ create table intel.logs(
 ) with(oids=false);
 
 create table intel.portals(
-  id bigint not null primary key,
+  id serial not null primary key,
   guid varchar not null unique,
   tile_key varchar not null,
   geohash char(10) null references intel.geohash(geohash) on delete set null,
@@ -76,13 +76,13 @@ create unique index agents_idx00 on intel.agents(name);
 create table intel.portal_state_logs(
   id serial not null primary key,
   portal_id integer not null references intel.portals(id) on delete cascade,
-  owner varchar not null,
+  owner varchar,
   level smallint not null,
   health smallint not null,
   team char(1) not null default 'N',
-  mitigation smallint not null,
+  mitigation smallint,
   res_count smallint not null,
-  resonators jsonb not null,
-  mods jsonb not null,
+  resonators jsonb,
+  mods jsonb,
   created_at timestamp not null default current_timestamp
 ) with(oids=false);

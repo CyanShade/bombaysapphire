@@ -18,21 +18,13 @@ libraryDependencies ++= Seq(
   "org.slf4j" %  "slf4j-log4j12" % "latest.integration"
 )
 
-//lazy val collectJars = taskKey[Seq[File]]("collect jars")
-
-//collectJars := {
-//  val dir = "target/lib"
-//  val file = s"${name.value}_2.11-${version.value}.jar"
-//println(file)
-// sbt.file(s"target/scala-2.11/$file")
-//  (dependencyClasspath in Compile) map { paths =>
-//    paths.map { path =>
-//      val jar = path.data
-//      val dist = new File(s"$dir/${jar.getName}")
-//      org.apache.ivy.util.FileUtil.copy(jar,dist,null)
-//      println(s"$jar -> $dist")
-//      dist
-//    }
-//  }
-//}
-
+TaskKey[Seq[java.io.File]]("collect-jars") <<= {
+  (dependencyClasspath in Compile) map { paths =>
+    paths.map { path =>
+      val jar = path.data
+      val dist = new File("target/lib/"+jar.getName)
+      org.apache.ivy.util.FileUtil.copy(jar,dist,null)
+      dist
+    }
+  }
+}

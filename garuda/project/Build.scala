@@ -26,10 +26,11 @@ object Build extends sbt.Build {
   val collectJars = TaskKey[Unit]("collect-jars", "collect dependent jar files to target/lib")
   val collectJarsTask = collectJars := {
     import scala.collection.JavaConversions._
-    val dst = "target/lib"
+    val dst = "../docker/garuda/lib"
     val file = s"${name.value}_2.11-${version.value}.jar"
     val src = new File(s"target/scala-2.11/$file")
     println(s"COPY: $file")
+    new File(dst).mkdirs()
     org.apache.ivy.util.FileUtil.copy(src, new File(s"$dst/$file"), null)
     def copy(dir:File):Unit = dir.listFiles.foreach { f =>
       val name = f.getName
