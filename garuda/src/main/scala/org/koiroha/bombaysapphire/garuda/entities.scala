@@ -1,6 +1,6 @@
 package org.koiroha.bombaysapphire.garuda
 
-import java.sql.Timestamp
+import java.sql.{SQLException, Timestamp}
 
 import org.koiroha.bombaysapphire.garuda.Entities.Portal
 import org.koiroha.bombaysapphire.garuda.schema.Tables
@@ -10,18 +10,15 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.slick.driver.PostgresDriver.simple._
 import scala.slick.jdbc.StaticQuery.interpolation
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 package object entities {
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
   implicit class _Entities(entities:Entities){
 
-    // ============================================================================================
-    // エンティティの保存
-    // ============================================================================================
     /**
-     * 取得したエンティティをデータベースに保存。
+     * エンティティをデータベースに保存。
      * @param tm 取得日時
      */
     def save(tm:Timestamp)(implicit session:Session, context:Context):Unit = {
@@ -172,6 +169,22 @@ package object entities {
      */
     private[this] def notice(latE6:Int, lngE6:Int, code:String, message:String, args:String*)(implicit session:Session):Unit = {
       logger.info(f"[${latE6/1e6}%.6f:${lngE6/1e6}%.6f] $message")
+    }
+  }
+
+  implicit class _Plext(plext:Plext) {
+    def save(tm:Timestamp)(implicit session:Session):Unit = {
+      // この Plext ログが存在しなければ保存
+      if(! Tables.Plexts.filter{ _.guid === plext.guid }.exists.run){
+        try {
+          Tables.Plexts.map{ x =>
+            (x.guid, x.unknown, x.category, x.markup, x.plextType, x.team, x.text, x.createdAt)
+          }.insert((plext.guid, plext.unknown, plext.categories, plext.markup, plext.plextType, plext.team.symbol.toString, plext.text, tm))
+        } catch {
+          case ex:SQLException =>
+            logger.debug(s"concurrency write conflict: $plext", ex)
+        }
+      }
     }
   }
 
