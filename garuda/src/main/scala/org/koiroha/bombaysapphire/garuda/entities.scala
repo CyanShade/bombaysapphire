@@ -6,11 +6,11 @@ import org.koiroha.bombaysapphire.garuda.Entities.Portal
 import org.koiroha.bombaysapphire.garuda.schema.Tables
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.slick.driver.PostgresDriver.simple._
 import scala.slick.jdbc.StaticQuery.interpolation
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success}
 
 package object entities {
   private[this] val logger = LoggerFactory.getLogger(getClass)
@@ -177,9 +177,7 @@ package object entities {
       // この Plext ログが存在しなければ保存
       if(! Tables.Plexts.filter{ _.guid === plext.guid }.exists.run){
         try {
-          Tables.Plexts.map{ x =>
-            (x.guid, x.unknown, x.category, x.markup, x.plextType, x.team, x.text, x.createdAt)
-          }.insert((plext.guid, plext.unknown, plext.categories, plext.markup, plext.plextType, plext.team.symbol.toString, plext.text, tm))
+          sqlu"insert into intel.plexts(guid,unknown,category,markup,plext_type,team,text,created_at) values(${plext.guid},${plext.unknown},${plext.categories},${plext.markup}::jsonb,${plext.plextType},${plext.team.symbol.toString},${plext.text},$tm)".first
         } catch {
           case ex:SQLException =>
             logger.debug(s"concurrency write conflict: $plext", ex)

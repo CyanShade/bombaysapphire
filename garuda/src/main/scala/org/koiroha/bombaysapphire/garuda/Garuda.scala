@@ -119,11 +119,7 @@ class Garuda(context:Context) extends GarudaAPI {
 			case "getGameScore" => GameScore(resJson \ "result")
 			case "getRegionScoreDetails" => RegionScoreDetails(resJson)
 			case "getPlexts" => Plext(resJson).map{ plext =>
-<<<<<<< HEAD
-				// plext.save(tm)
-=======
-				plext.save(tm)
->>>>>>> 46b419c7e7cd1450df51fc676cbaf60c26f994dc
+				plext.foreach{ _.save(tm) }
 				plext
 			}
 			case "getEntities" => Entities(resJson).map{ entities =>

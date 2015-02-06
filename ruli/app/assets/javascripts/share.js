@@ -91,6 +91,12 @@ $(function(){
         .attr("style", (height===null)? "": "height:" + height + ";"));
   }
 
+  /** 緯度/経度から距離を計算。 */
+  function distance(lat0, lng9, lat1, lng1){
+    var latM = 40054782/360 * Math.abs(lat1 - lat2);    // 緯度方向の距離
+    //var lngM =
+  }
+
   ruli = {
     remoteHost: RemoteHost,
     createAddressLink: create_address_link,
