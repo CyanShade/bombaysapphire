@@ -5,10 +5,11 @@
 # Home page
 GET     /                           controllers.Application.index
 GET     /portal/nearlies            controllers.Application.index
-GET     /portal/locations           controllers.Application.locations
 GET     /portal/eventlogs           controllers.Application.eventlogs
 GET     /portal/events              controllers.Application.events
 GET     /regions                    controllers.Application.regions
+GET     /api/1.0/portals            controllers.Application.portals(fmt:String ?= "json")
+GET     /api/1.0/portals.:fmt       controllers.Application.portals(fmt)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

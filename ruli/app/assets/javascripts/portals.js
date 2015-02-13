@@ -209,7 +209,7 @@ $(function(){
   */
   $("#search").click(function(){
     var query = $("#search_form").serialize() + "&cll=" + latitude + "," + longitude;
-    $.getJSON("/portal/locations?" + query, function(json){
+    $.getJSON("/api/1.0/portals.json?" + query, function(json){
       list(json);
       var latlng = [ ];
       $.each(json, function(){
@@ -217,6 +217,14 @@ $(function(){
       });
       draw(latlng);
     });
+  });
+
+  /**
+   * ダウンロードボタンが押された時のアクション。
+  */
+  $("#download").click(function(){
+    var query = $("#search_form").serialize() + "&cll=" + latitude + "," + longitude + "&dl=on";
+    window.location = "/api/1.0/portals.kml?" + query;
   });
 
   /**
