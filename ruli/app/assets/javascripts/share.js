@@ -52,6 +52,9 @@ $(function(){
 
   /** リンク付きの住所情報要素を構築。 */
   function create_address_link(country, state, city, lat, lng){
+    if(country === null && state === null && city === null){
+      return create_portal_link("住所未解決", lat, lng);
+    }
     return create_portal_link(city + ", " + state + ", " + country, lat, lng);
   }
 
@@ -97,6 +100,37 @@ $(function(){
     //var lngM =
   }
 
+  /** 数値をフォーマット */
+  function display_number(num){
+    return String(Math.floor(num)).replace( /(\d)(?=(\d\d\d)+(?!\d))/g, '$1,');
+  }
+
+  /** ページネーションの表示 */
+  function paginate(selector, page, pages, min, max, onclick, href){
+    var pagination = $(selector).empty();
+    function add(i){
+      pagination.append($("<li/>")
+        .attr("class", i==page? "active": "")
+        .append($("<a/>")
+          .attr("href", href(i))
+          .click(onclick(i))
+          .text(i + 1)));
+    }
+    function addSeparator(){
+      pagination.append($("<li/>")
+        .attr("class", "disabled")
+        .append($("<a/>").attr("href", "#").text("…")));
+    }
+    var begin = Math.max(min, page - Math.floor(pages / 2));
+    var end = Math.min(max, begin + pages);
+    if(begin > min) add(min);
+    if(begin > min + 1) addSeparator();
+    var i;
+    for(i=begin; i<=end; i++) add(i);
+    if(end < max - 1) addSeparator();
+    if(end < max) add(max);
+  }
+
   ruli = {
     remoteHost: RemoteHost,
     createAddressLink: create_address_link,
@@ -104,6 +138,8 @@ $(function(){
     createPinnedLink: create_pinned_link,
     createTimestamp: create_timestamp,
     createImage: create_image,
+    paginate: paginate,
+    displayNumber: display_number
   };
 
 });

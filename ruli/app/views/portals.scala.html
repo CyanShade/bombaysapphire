@@ -11,9 +11,10 @@
                 <div class="form-group form-group-sm">
                     <input type="text" class="form-control" id="country" name="country" placeholder="Country Code">
                     <input type="text" class="form-control" id="state" name="state" placeholder="State">
-                    <input type="text" class="form-control" id="city" name="city" placeholder="City" value="墨田区">
+                    <input type="text" class="form-control" id="city" name="city" placeholder="City" value="">
                 </div>
                 <button id="search" type="button" class="btn btn-default btn-sm">検索</button>
+                <input type="hidden" id="bounds" name="bounds"/>
             </form>
             <div>
                 <small>現在地: <span id="current_location">-</span></small>
@@ -23,21 +24,27 @@
     </div>
     <div class="row">
         <div class="col-md-8">
-            <table class="table table-striped" style="height:480px;overflow:scroll;">
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>ポータル <small>(<span id="portal_count">0</span>)</small></th>
-                </tr>
-                </thead>
-                <tbody id="portals">
-                </tbody>
-            </table>
+            <button id="mapsync" class="btn btn-default btn-xs active">Map Sync</button>
+            <button id="fit" class="btn btn-default btn-xs" disabled="disabled">Fit to Portals</button>
+            <button id="scanfarm" class="btn btn-default btn-xs">Scan Farm<span id="scanfarm_progress"></span></button>
+            <button id="hideportals" class="btn btn-default btn-xs">Hide Portals</button>
         </div>
         <div class="col-md-4">
-            <a href="#" class="thumbnail">
-                <canvas id="plot_area" width="320" height="480"></canvas>
-            </a>
+            <small><span id="portal_count">0</span> Portals</small>
+            <button id="download" class="btn btn-default btn-xs">Download KML</button>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <div id="map" style="height:600px;"></div>
+        </div>
+        <div class="col-md-4">
+            <div style="height:600px;overflow:auto;">
+                <table class="table table-striped">
+                    <tbody id="portals">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

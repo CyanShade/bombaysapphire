@@ -14,7 +14,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table _Temp
    *  @param r Database column r DBType(polygon), Length(2147483647,false) */
@@ -190,6 +190,55 @@ trait Tables {
   /** Collection-like TableQuery object for table Logs */
   lazy val Logs = new TableQuery(tag => new Logs(tag))
   
+  /** Entity class storing rows of table Plexts
+   *  @param id Database column id DBType(bigserial), AutoInc, PrimaryKey
+   *  @param guid Database column guid DBType(varchar), Length(2147483647,true)
+   *  @param unknown Database column unknown DBType(float8)
+   *  @param category Database column category DBType(int4)
+   *  @param markup Database column markup DBType(jsonb), Length(2147483647,false)
+   *  @param plextType Database column plext_type DBType(varchar), Length(2147483647,true)
+   *  @param team Database column team DBType(bpchar), Length(1,false)
+   *  @param text Database column text DBType(varchar), Length(2147483647,true)
+   *  @param createdAt Database column created_at DBType(timestamp) */
+  case class PlextsRow(id: Long, guid: String, unknown: Double, category: Int, markup: String, plextType: String, team: String, text: String, createdAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching PlextsRow objects using plain SQL queries */
+  implicit def GetResultPlextsRow(implicit e0: GR[Long], e1: GR[String], e2: GR[Double], e3: GR[Int], e4: GR[java.sql.Timestamp]): GR[PlextsRow] = GR{
+    prs => import prs._
+    PlextsRow.tupled((<<[Long], <<[String], <<[Double], <<[Int], <<[String], <<[String], <<[String], <<[String], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table plexts. Objects of this class serve as prototypes for rows in queries. */
+  class Plexts(_tableTag: Tag) extends Table[PlextsRow](_tableTag, Some("intel"), "plexts") {
+    def * = (id, guid, unknown, category, markup, plextType, team, text, createdAt) <> (PlextsRow.tupled, PlextsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, guid.?, unknown.?, category.?, markup.?, plextType.?, team.?, text.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PlextsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(bigserial), AutoInc, PrimaryKey */
+    val id: Column[Long] = column[Long]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column guid DBType(varchar), Length(2147483647,true) */
+    val guid: Column[String] = column[String]("guid", O.Length(2147483647,varying=true))
+    /** Database column unknown DBType(float8) */
+    val unknown: Column[Double] = column[Double]("unknown")
+    /** Database column category DBType(int4) */
+    val category: Column[Int] = column[Int]("category")
+    /** Database column markup DBType(jsonb), Length(2147483647,false) */
+    val markup: Column[String] = column[String]("markup", O.Length(2147483647,varying=false))
+    /** Database column plext_type DBType(varchar), Length(2147483647,true) */
+    val plextType: Column[String] = column[String]("plext_type", O.Length(2147483647,varying=true))
+    /** Database column team DBType(bpchar), Length(1,false) */
+    val team: Column[String] = column[String]("team", O.Length(1,varying=false))
+    /** Database column text DBType(varchar), Length(2147483647,true) */
+    val text: Column[String] = column[String]("text", O.Length(2147483647,varying=true))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    
+    /** Uniqueness Index over (guid) (database name plexts_guid) */
+    val index1 = index("plexts_guid", guid, unique=true)
+    /** Uniqueness Index over (guid) (database name plexts_guid_key) */
+    val index2 = index("plexts_guid_key", guid, unique=true)
+  }
+  /** Collection-like TableQuery object for table Plexts */
+  lazy val Plexts = new TableQuery(tag => new Plexts(tag))
+  
   /** Entity class storing rows of table PortalEventLogs
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param portalId Database column portal_id DBType(int4)
@@ -295,47 +344,47 @@ trait Tables {
   /** Entity class storing rows of table PortalStateLogs
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param portalId Database column portal_id DBType(int4)
-   *  @param owner Database column owner DBType(varchar), Length(2147483647,true)
+   *  @param owner Database column owner DBType(varchar), Length(2147483647,true), Default(None)
    *  @param level Database column level DBType(int2)
    *  @param health Database column health DBType(int2)
    *  @param team Database column team DBType(bpchar), Length(1,false)
-   *  @param mitigation Database column mitigation DBType(int2)
+   *  @param mitigation Database column mitigation DBType(int2), Default(None)
    *  @param resCount Database column res_count DBType(int2)
-   *  @param resonators Database column resonators DBType(jsonb), Length(2147483647,false)
-   *  @param mods Database column mods DBType(jsonb), Length(2147483647,false)
+   *  @param resonators Database column resonators DBType(jsonb), Length(2147483647,false), Default(None)
+   *  @param mods Database column mods DBType(jsonb), Length(2147483647,false), Default(None)
    *  @param createdAt Database column created_at DBType(timestamp) */
-  case class PortalStateLogsRow(id: Int, portalId: Int, owner: String, level: Short, health: Short, team: String, mitigation: Short, resCount: Short, resonators: String, mods: String, createdAt: java.sql.Timestamp)
+  case class PortalStateLogsRow(id: Int, portalId: Int, owner: Option[String] = None, level: Short, health: Short, team: String, mitigation: Option[Short] = None, resCount: Short, resonators: Option[String] = None, mods: Option[String] = None, createdAt: java.sql.Timestamp)
   /** GetResult implicit for fetching PortalStateLogsRow objects using plain SQL queries */
-  implicit def GetResultPortalStateLogsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[Short], e3: GR[java.sql.Timestamp]): GR[PortalStateLogsRow] = GR{
+  implicit def GetResultPortalStateLogsRow(implicit e0: GR[Int], e1: GR[Option[String]], e2: GR[Short], e3: GR[String], e4: GR[Option[Short]], e5: GR[java.sql.Timestamp]): GR[PortalStateLogsRow] = GR{
     prs => import prs._
-    PortalStateLogsRow.tupled((<<[Int], <<[Int], <<[String], <<[Short], <<[Short], <<[String], <<[Short], <<[Short], <<[String], <<[String], <<[java.sql.Timestamp]))
+    PortalStateLogsRow.tupled((<<[Int], <<[Int], <<?[String], <<[Short], <<[Short], <<[String], <<?[Short], <<[Short], <<?[String], <<?[String], <<[java.sql.Timestamp]))
   }
   /** Table description of table portal_state_logs. Objects of this class serve as prototypes for rows in queries. */
   class PortalStateLogs(_tableTag: Tag) extends Table[PortalStateLogsRow](_tableTag, Some("intel"), "portal_state_logs") {
     def * = (id, portalId, owner, level, health, team, mitigation, resCount, resonators, mods, createdAt) <> (PortalStateLogsRow.tupled, PortalStateLogsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, portalId.?, owner.?, level.?, health.?, team.?, mitigation.?, resCount.?, resonators.?, mods.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalStateLogsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, portalId.?, owner, level.?, health.?, team.?, mitigation, resCount.?, resonators, mods, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalStateLogsRow.tupled((_1.get, _2.get, _3, _4.get, _5.get, _6.get, _7, _8.get, _9, _10, _11.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column portal_id DBType(int4) */
     val portalId: Column[Int] = column[Int]("portal_id")
-    /** Database column owner DBType(varchar), Length(2147483647,true) */
-    val owner: Column[String] = column[String]("owner", O.Length(2147483647,varying=true))
+    /** Database column owner DBType(varchar), Length(2147483647,true), Default(None) */
+    val owner: Column[Option[String]] = column[Option[String]]("owner", O.Length(2147483647,varying=true), O.Default(None))
     /** Database column level DBType(int2) */
     val level: Column[Short] = column[Short]("level")
     /** Database column health DBType(int2) */
     val health: Column[Short] = column[Short]("health")
     /** Database column team DBType(bpchar), Length(1,false) */
     val team: Column[String] = column[String]("team", O.Length(1,varying=false))
-    /** Database column mitigation DBType(int2) */
-    val mitigation: Column[Short] = column[Short]("mitigation")
+    /** Database column mitigation DBType(int2), Default(None) */
+    val mitigation: Column[Option[Short]] = column[Option[Short]]("mitigation", O.Default(None))
     /** Database column res_count DBType(int2) */
     val resCount: Column[Short] = column[Short]("res_count")
-    /** Database column resonators DBType(jsonb), Length(2147483647,false) */
-    val resonators: Column[String] = column[String]("resonators", O.Length(2147483647,varying=false))
-    /** Database column mods DBType(jsonb), Length(2147483647,false) */
-    val mods: Column[String] = column[String]("mods", O.Length(2147483647,varying=false))
+    /** Database column resonators DBType(jsonb), Length(2147483647,false), Default(None) */
+    val resonators: Column[Option[String]] = column[Option[String]]("resonators", O.Length(2147483647,varying=false), O.Default(None))
+    /** Database column mods DBType(jsonb), Length(2147483647,false), Default(None) */
+    val mods: Column[Option[String]] = column[Option[String]]("mods", O.Length(2147483647,varying=false), O.Default(None))
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
     

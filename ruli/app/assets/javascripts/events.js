@@ -5,17 +5,9 @@ $(function(){
     $.getJSON("/portal/events?" + query, function(json){
 
       // ページネーション表示
-      function f(i){ return function(){ update_events(i, items); return false; }; }
-      var pagenation = $("#pagenation").empty();
-      var i;
-      for(i=0; i<=json.max_page; i++){
-        pagenation.append($("<li/>")
-          .attr("class", i==page? "active": "")
-          .append($("<a/>")
-            .attr("href", "?p=" + i + "&i=" + items)
-            .click(f(i))
-            .text(i + 1)));
-      }
+      ruli.paginate("ul.pagination", page, 15, 0, json.max_page, function(i){
+        return function(){ update_events(i, items); return false; };
+      }, function(i){ return "?p=" + i + "&i=" + items; });
 
       // 各イベントを表示
       $("#events").empty();
