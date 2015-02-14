@@ -1,203 +1,39 @@
 $(function(){
-
-  // #####################################
-  // パネルの切り替え
-
-  (function(){
-    var panels = [ "events", "portal", "new_portal" ];
-    $.each(panels, function(i, value){
-      $("#menu_" + value).click(function(){
-        $.each(panels, function(j, value2){ $("#main_" + value2).hide(); });
-        $("#main_" + value).show();
-      });
-    });
-  })();
-
-  // #####################################
-
-  $(function(){
-    var page = 0;
-    var items = 50;
-    var query = "p=" + page + "&i=" + items;
-    $.getJSON("/portal/events?" + query, function(json){
-      $.each(json.items, function(i, item){
-        var message = $("<div/>");
-        switch(item.action){
-        case "create":
-          message.attr("class", "text-info")
-            .append("新規ポータル \"").append($("<b/>").text(item.title)).append("\" が追加されました。");
-          break;
-        case "remove":
-          message.attr("class", "text-danger")
-            .append("ポータル \"").append($("<b/>").text(item.title)).append("\" が削除されました。");
-          break;
-        case "change_title":
-          message.attr("class", "text-mute")
-            .append("ポータル \"" + item.old_value + "\" の名前が \"").append($("<b/>").text(item.new_value)).append("\" に変更されました。");
-          break;
-        case "change_image":
-          message.attr("class", "text-mute")
-            .append("ポータル \"" + item.title + "\" の画像が ")
-            .append(create_image(item.title, item.old_value, "3ex"))
-            .append(" から ")
-            .append(create_image(item.title, item.new_value, "3ex"))
-            .append(" に変更されました。");
-          break;
-        case "change_location":
-          var o = item.old_value.split(",", 2);
-          var n = item.new_value.split(",", 2);
-          message.attr("class", "text-mute")
-            .append("ポータル \"" + item.title + "\" の位置が ")
-            .append(create_location_link(item.old_value, o[0], o[1]))
-            .append(" から ")
-            .append(create_location_link(item.new_value, n[0], n[1]))
-            .append(" に変更されました。");
-          break;
-        default:
-          message.text(item.action);
-          break;
-        }
-        var info = $("<div/>")
-          .attr("style", "font-size:smaller;")
-          .append(create_address_link(item.country, item.state, item.city, item.latlng[0], item.latlng[1]))
-          .append(" ")
-          .append(create_timestamp(this.created_at));
-        $("#events")
-          .append($("<tr/>")
-            .append($("<td/>").append(message).append(info)));
-      });
-    });
-  });
-
-
-  // #####################################
-
-  function decode(s){
-    var t = "";
-    for(var i=0; i<s.length; i++){
-      t += String.fromCharCode(s.charCodeAt(i) + 3);
-    }
-    return t;
-  }
-  var RemoteHost = decode("ttt+fkdobpp+`lj");
-
-  /**
-   * 現在時刻からの相対時間に変換。
-  */
-  function relativeDateTime(dt){
-    var sec = (new Date().getTime() - dt.getTime()) / 1000;
-    if(sec < 5)  return "今";
-    if(sec < 60)  return (Math.floor(sec/5)*5) + "秒前";
-    if(sec < 60 * 60)  return Math.floor(sec/60) + "分前";
-    if(sec < 24 * 60 * 60)  return Math.floor(sec/60/60) + "時間前";
-    return Math.floor(sec/24/60/60) + "日前";
-  }
-
-  /**
-  */
-  function stringToDate(str){
-    str.match(/(\d+)\/(\d+)\/(\d+) (\d+):(\d+)/);
-    var year = parseInt(RegExp.$1);
-    var month = parseInt(RegExp.$2);
-    var date = parseInt(RegExp.$3);
-    var hour = parseInt(RegExp.$4);
-    var minute = parseInt(RegExp.$5);
-    return new Date(year, month - 1, date, hour, minute);
-  }
-
-  /** リンク付きの住所情報要素を構築。 */
-  function create_address_link(country, state, city, lat, lng){
-    return create_location_link(city + ", " + state + ", " + country, lat, lng);
-  }
-
-  /** リンク付きの住所情報要素を構築。 */
-  function create_location_link(label, lat, lng){
-    return $("<a/>")
-      .attr("href", "https://" + RemoteHost + "/intel?pll=" + lat + "," + lng + "&z=17")
-      .attr("target", "intel")
-      .attr("title", lat + "/" + lng)
-      .text(label);
-  }
-
-  /** 時刻要素を構築。 */
-  function create_timestamp(tm){
-    return $("<span/>")
-      .attr("title", tm)
-      .text(relativeDateTime(stringToDate(tm)));
-  }
-
-  /** 画像要素を構築。 */
-  function create_image(title, src, height){
-    return $("<a/>")
-      .attr("href", src)
-      .append($("<img/>")
-        .attr("src", src)
-        .attr("title", title)
-        .attr("border", "0")
-        .attr("style", (height===null)? "": "height:" + height + ";"));
-  }
-
-  /**
-   * ポータルのプロット。
-  */
-  function draw(data){
-    var area = $("#plot_area");
-    var w = area.width();
-    var h = area.height();
-    var g = document.getElementById("plot_area").getContext('2d');
-    g.clearRect(0, 0, w, h);
-    if(data.length === 0){ return; }
-    g.fillStyle = 'rgba(119,184,218,0.7)';
-    var x0 = data[0][1], x1 = data[0][1], y0 = data[0][0], y1 = data[0][0];
-    $.each(data, function(){
-      x0 = Math.min(x0, this[1]);
-      x1 = Math.max(x1, this[1]);
-      y0 = Math.min(y0, this[0]);
-      y1 = Math.max(y1, this[0]);
-    });
-    var ox = 0, oy = 0, dx = 0, dy = 0;
-    if(x0 == x1)  ox = w / 2;
-    else          dx = w / (x1 - x0);
-    if(y0 == y1)  oy = h / 2;
-    else          dy = h / (y1 - y0);
-    if(x0 != x1 && y0 != y1){
-      dx = dy = Math.min(dx, dy);
-      ox = (w - (x1 - x0) * dx) / 2;
-      oy = (h - (y1 - y0) * dy) / 2;
-    }
-    var size = data.length > 1000? 1: 3;
-    $.each(data, function(){
-      var x = (this[1] - x0) * dx + ox, y = h - ((this[0] - y0) * dy + oy);
-      g.fillRect(x, y, size, size);
-      // console.log(JSON.stringify(this)+" => ("+x+","+y+"): ("+x0+","+y0+")-("+x1+","+y1+")");
-    });
-  }
+  var currentPortals = [];    // 現在表示中のポータル
 
   /**
    * ポータル情報の一覧表示。
   */
   function list(data){
-    $("#portal_count").text(data.length);
+    $("#portal_count").text(ruli.displayNumber(data.length));
     var table = $("#portals");
     table.empty();
+    var center = gmap.center();
+    var from = new google.maps.LatLng(center[0], center[1]);
     $.each(data, function(){
+      var to = new google.maps.LatLng(this.latlng[0], this.latlng[1]);
+      var distance = google.maps.geometry.spherical.computeDistanceBetween(from, to);
       table.append($("<tr/>")
-        .append($("<td>").attr("style","text-align:right;").text(this.id))
+        // .append($("<td>").attr("style","text-align:right;").text(this.id))
         .append($("<td>")
           .append($("<img/>")
             .attr("src", this.image)
-            .attr("style","height:64px;float:right;")
+            .attr("style","max-width:64px;max-height:64px;float:right;")
             .attr("title", this.title)
             .attr("alt", this.title)
           )
-          .append($("<h4/>").append(this.title))
+          .append($("<h5/>").append(this.title))
           .append($("<p/>")
-            .append(create_address_link(this.country, this.state, this.city, this.latlng[0], this.latlng[1]))
+            .attr("style", "font-size:smaller;")
+            .append(ruli.createAddressLink(this.country, this.state, this.city, this.latlng[0], this.latlng[1]))
             .append($("<span/>")
               .attr("style", "font-size:0px;")  // コピペ時に現れる隠しテキストとして
-              .text(" https://" + RemoteHost + "/intel?pll=" + this.latlng[0] + "," + this.latlng[1] + "&z=17")
+              .text(" https://" + ruli.RemoteHost + "/intel?pll=" + this.latlng[0] + "," + this.latlng[1] + "&z=17")
             )
-            .append(create_timestamp(this.created_at))
+            .append(" ")
+            .append(ruli.displayNumber(distance))
+            .append("m ")
+            .append(ruli.createTimestamp(this.created_at))
           )
         )
       );
@@ -205,27 +41,250 @@ $(function(){
   }
 
   /**
-   * 検索ボタンが押された時のアクション。
+   * 検索の実行。
   */
-  $("#search").click(function(){
-    var query = $("#search_form").serialize() + "&cll=" + latitude + "," + longitude;
+  function search(){
+    var c = gmap.center();
+    var query = $("#search_form").serialize() + "&cll=" + c[0] + "," + c[1];
     $.getJSON("/api/1.0/portals.json?" + query, function(json){
+      currentPortals = json;
       list(json);
-      var latlng = [ ];
-      $.each(json, function(){
-        latlng.push(this.latlng);
-      });
-      draw(latlng);
+      gmap.update(json);
     });
-  });
+  }
+
+  /** 現在表示しているポータル一覧からスキャナ範囲に含まれるポータル数を多い順に検索。 */
+  function scanMassiveLocation(){
+    var portals = currentPortals;
+    if(portals.length === 0){
+      return;
+    }
+    var button = $("#scanfarm");
+    button.attr("disabled", "disabled");
+    // スキャン範囲を決定
+    var lat0 = portals[0].latlng[0], lat1 = portals[0].latlng[0];
+    var lng0 = portals[0].latlng[1], lng1 = portals[0].latlng[1];
+    $.each(portals, function(){
+      lat0 = Math.min(lat0, this.latlng[0]);
+      lng0 = Math.min(lng0, this.latlng[1]);
+      lat1 = Math.max(lat1, this.latlng[0]);
+      lng1 = Math.max(lng1, this.latlng[1]);
+    });
+    // 観測点の決定
+    var origin = google.maps.geometry.spherical.computeOffset(new google.maps.LatLng(lat1, lng0), 80 * Math.sqrt(2), -45);
+    var terminal = google.maps.geometry.spherical.computeOffset(new google.maps.LatLng(lat0, lng1), 80 * Math.sqrt(2), 90+45);
+    var distance = 10;
+    var point = origin;
+    var locations = [];
+    while(point.lat() >= terminal.lat()){
+      locations.push(point);
+      point = google.maps.geometry.spherical.computeOffset(point, distance, 90);
+      if(point.lng() > terminal.lng()){
+        point = new google.maps.LatLng(google.maps.geometry.spherical.computeOffset(point, distance, 180).lat(), origin.lng());
+      }
+    }
+
+    // スキャナの位置を移動しながら各ポータルの包含判定
+    var progress = $("#scanfarm_progress");
+    var scanner = new google.maps.Circle({    // アニメーション用のスキャナ
+      fillColor: "crimson",
+      strokeColor: "crimson",
+      radius: 40,
+      map: gmap.map(),
+    });
+    // ブラウザの JavaScript では非同期処理が行えないためタイマーを使って実行
+    function _evaluate(i){
+      var location = locations[i];
+      scanner.setCenter(location);
+      // 各ポータルとの距離を計算
+      var r = new Array(0, 0, 0);   // 40m, 60m, 80m
+      $.each(portals, function(){
+        var position = new google.maps.LatLng(this.latlng[0], this.latlng[1]);
+        var d = google.maps.geometry.spherical.computeDistanceBetween(location, position);
+        if(d <= 40) r[0] ++;
+        if(d <= 60) r[1] ++;
+        if(d <= 80) r[2] ++;
+        // console.log("("+location.lat()+","+location.lng()+")->("+position.lat()+","+position.lng()+"): "+d+"m");
+      });
+      var opacity = Math.min((r[0] + (r[1]-r[0])*(4/6) + (r[2]-r[1])*(4/8)) / 10, 1.0) * 0.8;
+      console.log("("+location.lat()+","+location.lng()+"): r40="+r[0]+",r60="+r[1]+",r80="+r[2]+"; opacity="+opacity);
+      if(true){
+        var n = google.maps.geometry.spherical.computeOffset(location, distance/2, 0).lat();
+        var s = google.maps.geometry.spherical.computeOffset(location, distance/2, 180).lat();
+        var e = google.maps.geometry.spherical.computeOffset(location, distance/2, 90).lng();
+        var w = google.maps.geometry.spherical.computeOffset(location, distance/2, -90).lng();
+        new google.maps.Rectangle({
+          bounds: new google.maps.LatLngBounds(new google.maps.LatLng(s, w), new google.maps.LatLng(n, e)),
+          map: gmap.map(),
+          strokeColor: '#FF0000',
+          strokeOpacity: 0.0,
+          strokeWeight: 0,
+          fillColor: '#FF0000',
+          fillOpacity: opacity
+        });
+      }
+      // 次の観測点へ移動するか処理を終了
+      if(i + 1 < locations.length){
+        progress.text(" (" + Math.floor(i / locations.length * 100) + "%)");
+        setTimeout(function(){ _evaluate(i+1); }, 20);
+      } else {
+        progress.text("");
+        scanner.setMap(null);
+        button.removeAttr("disabled");
+        alert("ok, " + portals.length + " portals, " + locations.length + " locations");
+      }
+    }
+    _evaluate(0);
+  }
 
   /**
-   * ダウンロードボタンが押された時のアクション。
+   * 検索ボタンが押された時のアクション。
   */
+  $("#search").click(search);
+
+  /** ダウンロードボタンが押された時のアクション */
   $("#download").click(function(){
-    var query = $("#search_form").serialize() + "&cll=" + latitude + "," + longitude + "&dl=on";
+    var c = gmap.center();
+    var query = $("#search_form").serialize() + "&cll=" + c[0] + "," + c[1] + "&dl=on&limit=1000";
     window.location = "/api/1.0/portals.kml?" + query;
   });
+
+  $("#mapsync").click(function(){
+    gmap.mapSync(! $("#mapsync").hasClass("active"));
+  });
+
+  $("#scanfarm").click(scanMassiveLocation);
+
+  $("#hideportals").click(function(){
+    var elem = $("#hideportals");
+    var hidden = $.data(elem, "hidden");
+    gmap.showPortals(!hidden);
+    elem.toggleClass("active", hidden);
+    $.data(elem, "hidden", !hidden);
+  });
+
+  var gmap = null;
+  (function(){
+    var map = null;
+    var portalMarkers = [];
+    var centerMarkers = [];
+    function resetCenterMarkers(){
+      $.each(centerMarkers, function(){
+        this.setCenter(map.getCenter());
+      });
+    }
+    function updateMapBounds(){
+      var bounds = map.getBounds();
+      var ne = bounds.getNorthEast();
+      var sw = bounds.getSouthWest();
+      $("#bounds").attr("value", ne.lat() + "," + ne.lng() + "," + sw.lat() + "," + sw.lng());
+      resetCenterMarkers();
+    }
+    function mapMoving(){
+      resetCenterMarkers();
+    }
+    function mapChanged(){
+      if($("#mapsync").hasClass("active")){
+        updateMapBounds();
+        search();
+      }
+    }
+    function deleteAllPortals(){
+      gmap.showPortals(false);
+      portalMarkers = [];
+    }
+
+    gmap = {
+      map: function(){ return map; },
+      initialize: function(selector, latitude, longitude){
+        if(map === null){
+          var mapOptions = {
+            zoom: 15,
+            center: new google.maps.LatLng(latitude, longitude)
+          };
+          map = new google.maps.Map($(selector).get()[0], mapOptions);
+          google.maps.event.addListener(map, "drag", mapMoving);
+          google.maps.event.addListener(map, "dragend", mapChanged);
+          google.maps.event.addListener(map, "zoom_changed", mapChanged);
+          setTimeout(0, function(){
+            updateMapBounds();
+            search();
+          });
+          // 中央をマーク
+          centerMarkers.push(new google.maps.Circle({
+            radius: 1,
+            strokeColor: "#191970",   // Midnight Blue
+            fillColor: "#191970",
+            map: map
+          }));
+          centerMarkers.push(new google.maps.Circle({
+            radius: 40,
+            strokeColor: "#36479F",   // Blu Michelangelo
+            fillColor: "#36479F",
+            map: map
+          }));
+          centerMarkers.push(new google.maps.Circle({
+            radius: 60,
+            strokeColor: "#36479F",   // Blu Michelangelo
+            strokeOpacity: 0.0,
+            fillColor: "#36479F",
+            fillOpacity: 0.3,
+            map: map
+          }));
+        }
+      },
+      /**
+       * 表示領域変更によるポータルの更新。
+      */
+      update: function(json){
+        deleteAllPortals();
+        // 新しいマーカーを設定
+        $.each(json, function(){
+          var markerOptions = {
+            map: map,
+            title: this.title,
+            opacity: 0.8,
+            position: new google.maps.LatLng(this.latlng[0], this.latlng[1])
+          };
+          var marker = new google.maps.Marker(markerOptions);
+          portalMarkers.push(marker);
+        });
+      },
+      /**
+       * 地図同期の設定。
+      */
+      mapSync: function(on){
+        var mapsync = $("#mapsync");
+        var fit = $("#fit");
+        mapsync.toggleClass("active", on);
+        if(on){
+          fit.attr("disabled", "disabled");
+          updateMapBounds();
+        } else {
+          fit.removeAttr("disabled");
+          $("#bounds").attr("value", "");
+        }
+        search();
+      },
+      /** ポータルの表示/非表示切り替え */
+      showPortals: function(show){
+        if(show){
+          $.each(portalMarkers, function(){
+            this.setMap(map);
+          });
+        } else {
+          $.each(portalMarkers, function(){
+            this.setMap(null);
+          });
+        }
+      },
+      /** センターポジションの参照 */
+      center: function(){
+        var c = map.getCenter();
+        return [ c.lat(), c.lng() ];
+      }
+    };
+  })();
 
   /**
    * geolocation を使用した位置情報の取得。
@@ -236,9 +295,10 @@ $(function(){
     navigator.geolocation.getCurrentPosition(function(position){
       latitude = position.coords.latitude;
       longitude = position.coords.longitude;
+      gmap.initialize("#map", latitude, longitude);
       var location = $("#current_location");
       var goecode = "http://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=false";
-      var mapurl = "https://" + RemoteHost + "/intel?pll=" + latitude + "," + longitude + "&z=17";
+      var mapurl = "https://" + ruli.RemoteHost + "/intel?pll=" + latitude + "," + longitude + "&z=17";
       location.empty().append($("<a/>")
        .attr("href", mapurl)
        .attr("target", "intel")

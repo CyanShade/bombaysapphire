@@ -100,6 +100,11 @@ $(function(){
     //var lngM =
   }
 
+  /** 数値をフォーマット */
+  function display_number(num){
+    return String(Math.floor(num)).replace( /(\d)(?=(\d\d\d)+(?!\d))/g, '$1,');
+  }
+
   /** ページネーションの表示 */
   function paginate(selector, page, pages, min, max, onclick, href){
     var pagination = $(selector).empty();
@@ -133,7 +138,8 @@ $(function(){
     createPinnedLink: create_pinned_link,
     createTimestamp: create_timestamp,
     createImage: create_image,
-    paginate: paginate
+    paginate: paginate,
+    displayNumber: display_number
   };
 
 });

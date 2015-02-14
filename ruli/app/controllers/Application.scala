@@ -36,8 +36,9 @@ object Application extends Controller {
       "Cache-Control" -> "no-cache"
     )
 
-    val reject = Seq("dl")
-    val portals = search(query.-("dl"))
+    val limit = query.get("limit").map{ _.toInt }.getOrElse(2000)
+
+    val portals = search(query.-("dl", "limit"), limit)
     fmt.toLowerCase match {
       case "json" =>
         Ok(Json.toJson(portals.map { case p =>
@@ -57,14 +58,16 @@ object Application extends Controller {
         // <kml xmlns="http://www.opengis.net/kml/2.2">
         Ok(
           <kml>
+            <Folder>
             { portals.map { p =>
             <Placemark>
               <name>{p.title}</name>
               <description>&lt;h4&gt;{p.title}&lt;/h4&gt;&lt;img src="{p.image}"/&gt;</description>
               <Point>
-                <coordinates>{p.latE6/1e6},{p.lngE6/1e6},0</coordinates>
+                <coordinates>{p.lngE6/1e6},{p.latE6/1e6},0</coordinates>
               </Point>
             </Placemark> }}
+            </Folder>
           </kml>
         ).withHeaders(additionalHeaders:_*)
       case _ => BadRequest
@@ -127,7 +130,7 @@ object Application extends Controller {
   }
 
 
-  def search(query:Map[String,String])(implicit session:play.api.db.slick.Session):Seq[Portal] = {
+  def search(query:Map[String,String], limit:Int)(implicit session:play.api.db.slick.Session):Seq[Portal] = {
     val param = query.filterNot{ _._2.trim().isEmpty }
     logger.debug(s"portal locations: ${param.filterNot{ _._2.trim().isEmpty }.toSeq.map{ case (k,v)=>s"$k=$v"}.mkString(",")}")
     param
@@ -158,10 +161,20 @@ object Application extends Controller {
               (p.late6.asColumnOf[Double]/1e6 - clat) * (p.late6.asColumnOf[Double]/1e6 - clat) +
                 (p.lnge6.asColumnOf[Double]/1e6 - clng) * (p.lnge6.asColumnOf[Double]/1e6 - clng) }
           } else table
+        case "bounds" =>
+          if(value == ""){
+            table
+          } else
+          value.split(",").map{ s => (s.toDouble * 1e6).toInt } match {
+            case Array(lat1, lng1, lat0, lng0) =>
+              table.filter{ case (p, g) => p.late6 >= lat0 && p.late6 <= lat1 && p.lnge6 >= lng0 && p.lnge6 <= lng1 }
+            case _ => throw new BadRequest(s"unsupported bounds format: $value")
+          }
         case unknown => throw new BadRequest(s"unknown parameter: $unknown=$value")
       }
     }
       //.sortBy { case (p, g) => (g.country, g.state, g.city) }
+      .take(limit)
       .map { case (p, g) => (p.id, p.title, p.image, p.late6, p.lnge6, p.createdAt, g.country.?, g.state.?, g.city.?)}
       .list.map{ case (id, title, image, latE6, lngE6, createdAt, country, state, city) =>
         Portal(id, title, image, latE6, lngE6, createdAt, country, state, city)
