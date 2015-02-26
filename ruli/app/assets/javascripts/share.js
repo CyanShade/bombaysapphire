@@ -131,6 +131,19 @@ $(function(){
     if(end < max) add(max);
   }
 
+  function millis_to_display_timespan(tm){
+    var days = Math.floor(tm / 24 / 60 / 60 / 1000);
+    var hours = Math.floor(tm / 60 / 60 / 1000) % 24;
+    var minutes = Math.floor(tm / 60 / 1000) % 60;
+    var seconds = Math.floor(tm / 1000) % 60;
+    if(days > 0){
+      return days + "日 " + hours + ":" + ("0"+minutes).substring(0,2);
+    } else if(hours > 0 || minutes > 5){
+      return hours + ":" + ("0"+minutes).substring(0,2);
+    }
+    return "今";
+  }
+
   ruli = {
     remoteHost: RemoteHost,
     createAddressLink: create_address_link,
@@ -139,7 +152,23 @@ $(function(){
     createTimestamp: create_timestamp,
     createImage: create_image,
     paginate: paginate,
-    displayNumber: display_number
+    displayNumber: display_number,
+    millisToDisplayTimeSpan: millis_to_display_timespan,
+    gmap: {
+      distance: function(from, to){ return google.maps.geometry.spherical.computeDistanceBetween(from, to); },
+      heading: function(from, to){ return google.maps.geometry.spherical.computeHeading(from, to); },
+      displayHeading: function(h){
+        var l = ["北","北北東","北東","東北東","東","東南東","東南","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+        h += 360 / l.length / 2;
+        if(h < 0){
+          h = 360 + h;
+        }
+        return l[Math.floor((h / 360 * l.length)) % l.length];
+      },
+      pinnedGMapUrl: function(title,ll){
+        return "http://maps.google.co.jp/maps?q=" + ll.lat() + "," + ll.lng() + "+" + encodeURIComponent(title);
+      }
+    }
   };
 
 });

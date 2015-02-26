@@ -23,6 +23,54 @@ object Application extends Controller {
     Ok(views.html.eventlogs())
   }
 
+  def portal(id:Int) = DBAction{ implicit  rs =>
+    implicit val session = rs.dbSession
+    val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
+    Tables.Portals.filter{ _.id === id }.firstOption match {
+      case Some(portal) =>
+        val states = Tables.PortalStateLogs.filter{ _.portalId === id }.sortBy{ _.createdAt.desc }.list
+        val events = Tables.PortalEventLogs.filter{ _.portalId === id }.sortBy{ _.createdAt.desc }.list
+        Ok(Json.toJson(
+          Json.obj(
+            "id" -> portal.id,
+            "guid" -> portal.guid,
+            "tile_key" -> portal.tileKey,
+            "latlng" -> Json.arr(portal.late6/1e6, portal.lnge6/1e6),
+            "title" -> portal.title,
+            "image" -> portal.image,
+            "team" -> portal.team,
+            "level" -> portal.level,
+            "guardian" -> portal.guardian,
+            "created_at" -> df.format(portal.createdAt),
+            "verified_at" -> df.format(portal.verifiedAt),
+            "deleted_at" -> portal.deletedAt.map{ t => df.format(t) }.getOrElse(null),
+            "state_log" -> states.map{ state =>
+              Json.obj(
+                "owner" -> state.owner.getOrElse(null),
+                "level" -> state.level,
+                "health" -> state.health,
+                "team" -> state.team,
+                "mitigation" -> state.mitigation.map{_.toInt}.getOrElse(-1).toInt,
+                "res_count" -> state.resCount,
+                "resonators" -> Json.arr(),
+                "mods" -> Json.arr(),
+                "created_at" -> df.format(state.createdAt)
+              )
+            },
+            "event_log" -> events.map{ event =>
+              Json.obj(
+                "action" -> event.action,
+                "old_value" -> event.oldValue,
+                "new_value" -> event.newValue,
+                "created_at" -> df.format(event.createdAt)
+              )
+            }
+          )
+        ))
+      case None => NotFound
+    }
+  }
+
   def portals(fmt:String) = DBAction { implicit rs =>
     implicit val session = rs.dbSession
     val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
@@ -36,7 +84,7 @@ object Application extends Controller {
       "Cache-Control" -> "no-cache"
     )
 
-    val limit = query.get("limit").map{ _.toInt }.getOrElse(2000)
+    val limit = query.get("limit").map{ _.toInt }.getOrElse(4000)
 
     val portals = search(query.-("dl", "limit"), limit)
     fmt.toLowerCase match {
@@ -47,6 +95,9 @@ object Application extends Controller {
             "title" -> p.title,
             "image" -> p.image,
             "latlng" -> Json.arr( p.latE6/1e6, p.lngE6/1e6 ),
+            "team" -> p.team,
+            "level" -> p.level,
+            "guardian" -> p.guardian,
             "country" -> p.country.getOrElse(null),
             "state" -> p.state.getOrElse(null),
             "city" -> p.city.getOrElse(null),
@@ -72,6 +123,39 @@ object Application extends Controller {
         ).withHeaders(additionalHeaders:_*)
       case _ => BadRequest
     }
+  }
+
+  def farms = DBAction { implicit rs =>
+    implicit val session = rs.dbSession
+    val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
+    val farms = Tables.Farms.innerJoin(Tables.FarmLogs).on{ _.latestLog === _.id }
+      .sortBy{ case (f,l) => f.name }.list
+    Ok(Json.arr(
+      farms.map{ case (farm, log) =>
+        Json.obj(
+          "id" -> farm.id,
+          "parent" -> farm.parent,
+          "name" -> farm.name,
+          "portal_count" -> log.portalCount,
+          "portal_count_r" -> log.portalCountR,
+          "portal_count_e" -> log.portalCountE,
+          "p8_count_r" -> log.p8CountR,
+          "p8_count_e" -> log.p8CountE,
+          "avr_level" -> log.avrLevel,
+          "avr_level_r" -> log.avrLevelR,
+          "avr_level_e" -> log.avrLevelE,
+          "avr_resonator_r" -> log.avrResonatorR,
+          "avr_resonator_e" -> log.avrResonatorE,
+          "avr_mod_r" -> log.avrModR,
+          "avr_mod_e" -> log.avrModE,
+          "avr_shielding_r" -> log.avrShieldingR,
+          "avr_shielding_e" -> log.avrShieldingE,
+          "hack_avail" -> log.hackAvail,
+          "created_at" -> df.format(farm.createdAt),
+          "updated_at" -> df.format(farm.updatedAt)
+        )
+      }
+    ))
   }
 
   def regions = Action {
@@ -136,6 +220,10 @@ object Application extends Controller {
     param
       .foldLeft(Tables.Portals.leftJoin(Tables.Geohash).on(_.geohash === _.geohash)) { case (table, (key, value)) =>
       key match {
+        case "title" =>
+          value.split("[\\s　]+")
+            .map{ _.replace("\\", "\\\\").replaceAll("([%_])", "\\$1") }
+            .foldLeft(table){ case (t,kwd) => t.filter{ case (p, g) => p.title.like("%" + kwd + "%") } }
         case "created_at>" =>
           toTimestamp(value) match {
             case Some(tm) => table.filter { case (p, g) => p.createdAt >= tm }
@@ -175,13 +263,14 @@ object Application extends Controller {
     }
       //.sortBy { case (p, g) => (g.country, g.state, g.city) }
       .take(limit)
-      .map { case (p, g) => (p.id, p.title, p.image, p.late6, p.lnge6, p.createdAt, g.country.?, g.state.?, g.city.?)}
-      .list.map{ case (id, title, image, latE6, lngE6, createdAt, country, state, city) =>
-        Portal(id, title, image, latE6, lngE6, createdAt, country, state, city)
+      .map { case (p, g) => (p.id, p.title, p.image, p.late6, p.lnge6, p.team, p.level, p.guardian, p.createdAt, p.verifiedAt, g.country.?, g.state.?, g.city.?)}
+      .list.map{ case (id, title, image, latE6, lngE6, team, level, guardian, createdAt, verifiedAt, country, state, city) =>
+        val diff = System.currentTimeMillis() - verifiedAt.getTime
+        Portal(id, title, image, latE6, lngE6, team, level.toInt, guardian + diff, createdAt, country, state, city)
       }
   }
 
-  case class Portal(id:Int, title:String, image:String, latE6:Int, lngE6:Int, createdAt:Timestamp, country:Option[String], state:Option[String], city:Option[String])
+  case class Portal(id:Int, title:String, image:String, latE6:Int, lngE6:Int, team:String, level:Int, guardian:Long, createdAt:Timestamp, country:Option[String], state:Option[String], city:Option[String])
 
   class BadRequest(msg:String) extends Exception(msg)
 

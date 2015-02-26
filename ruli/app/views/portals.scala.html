@@ -1,51 +1,134 @@
 @main("portals") {
 <div class="page-header" id="main_portal">
-    <div class="row">
-        <div class="col-md-12">
-            <h1>Portals</h1>
-            <form class="form-inline" id="search_form">
-                <div class="form-group form-group-sm">
-                    <input type="datetime" class="form-control" id="created_at&gt;" name="created_at&gt;" placeholder="From">
-                    <input type="datetime" class="form-control" id="created_at&lt;" name="created_at&lt;" placeholder="To">
-                </div>
-                <div class="form-group form-group-sm">
-                    <input type="text" class="form-control" id="country" name="country" placeholder="Country Code">
-                    <input type="text" class="form-control" id="state" name="state" placeholder="State">
-                    <input type="text" class="form-control" id="city" name="city" placeholder="City" value="">
-                </div>
-                <button id="search" type="button" class="btn btn-default btn-sm">検索</button>
-                <input type="hidden" id="bounds" name="bounds"/>
-            </form>
-            <div>
-                <small>現在地: <span id="current_location">-</span></small>
-            </div>
-            <hr/>
-        </div>
+  <div class="row">
+    <div class="col-md-12">
+      <h1>Portals</h1>
     </div>
-    <div class="row">
-        <div class="col-md-8">
-            <button id="mapsync" class="btn btn-default btn-xs active">Map Sync</button>
-            <button id="fit" class="btn btn-default btn-xs" disabled="disabled">Fit to Portals</button>
-            <button id="scanfarm" class="btn btn-default btn-xs">Scan Farm<span id="scanfarm_progress"></span></button>
-            <button id="hideportals" class="btn btn-default btn-xs">Hide Portals</button>
+  </div>
+  <div class="row">
+    <div class="col-md-12">
+      <form class="form-inline" id="search_form">
+        <div class="form-group form-group-sm">
+          <label class="sr-only" for="title">タイトル</label>
+          <input type="text" class="form-control" id="title" name="title" placeholder="Title">
         </div>
-        <div class="col-md-4">
-            <small><span id="portal_count">0</span> Portals</small>
-            <button id="download" class="btn btn-default btn-xs">Download KML</button>
+        <div class="form-group form-group-sm">
+          <label class="sr-only" for="created_at&gt;">検出日時(開始)</label>
+          <input type="datetime" class="form-control" id="created_at&gt;" name="created_at&gt;" placeholder="From">
+          <label class="sr-only" for="created_at&lt;">検出日時(終了)</label>
+          <input type="datetime" class="form-control" id="created_at&lt;" name="created_at&lt;" placeholder="To">
         </div>
+        <div class="form-group form-group-sm">
+          <input type="text" class="form-control" id="country" name="country" placeholder="Country Code">
+          <input type="text" class="form-control" id="state" name="state" placeholder="State">
+          <input type="text" class="form-control" id="city" name="city" placeholder="City" value="">
+        </div>
+        <button id="search" type="button" class="btn btn-default btn-sm">検索</button>
+        <input type="hidden" id="bounds" name="bounds"/>
+      </form>
     </div>
-    <div class="row">
-        <div class="col-md-8">
-            <div id="map" style="height:600px;"></div>
-        </div>
-        <div class="col-md-4">
-            <div style="height:600px;overflow:auto;">
-                <table class="table table-striped">
-                    <tbody id="portals">
-                    </tbody>
-                </table>
-            </div>
-        </div>
+  </div>
+
+  <div>
+    <div>
+      <small>現在地: <span id="current_location">-</span></small>
     </div>
+    <hr/>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+      <button id="mapsync" class="btn btn-default btn-xs active">Map Sync</button>
+      <button id="fit" class="btn btn-default btn-xs" disabled="disabled">Fit to Portals</button>
+      <button id="scanfarm" class="btn btn-default btn-xs">Scan Farm<span id="scanfarm_progress"></span></button>
+      <button id="hideportals" class="btn btn-default btn-xs">Hide Portals</button>
+    </div>
+    <div class="col-md-4">
+      <small><span id="portal_count">0</span> Portals</small>
+      <button id="download" class="btn btn-default btn-xs">Download KML</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-8">
+      <div id="map" style="height:600px;"></div>
+      <div>
+        <small><a id="center_address_search" class="btn btn-default btn-xs">Address</a>
+          <span id="center_address">-</span></small>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div style="height:600px;overflow:auto;">
+        <table class="table table-striped">
+          <tbody id="portals">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="portal_detail" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+            aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Modal title</h4>
+      </div>
+      <div class="modal-body">
+        <div class="row" style="font-size:smaller;">
+          <div class="col-md-8">
+            <table class="table table-condensed table-striped">
+              <tr>
+                <td>緯度/経度</td>
+                <td class="portal_detail_latlng">-</td>
+              </tr>
+              <tr>
+                <td>住所</td>
+                <td class="portal_detail_address">-</td>
+              </tr>
+              <tr>
+                <td>検出日時</td>
+                <td class="portal_detail_created_at">-</td>
+              </tr>
+              <tr>
+                <td>確認日時</td>
+                <td class="portal_detail_verified_at">-</td>
+              </tr>
+              <tr>
+                <td>削除日時</td>
+                <td class="portal_detail_deleted_at">-</td>
+              </tr>
+              <tr>
+                <td>Capture</td>
+                <td class="portal_detail_guardian">-</td>
+              </tr>
+            </table>
+          </div>
+          <div class="col-md-4">
+            <a href="#" target="_blank" class="thumbnail portal_detail_image">
+              <img src="/assets/images/default-portal-image.png" alt="" class="portal_detail_image" style="max-width:120px;max-height:120px;"/>
+            </a>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12">
+            <canvas id="portal_detail_capture_history"></canvas>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12" style="font-size:smaller;height:200px;overflow:auto;">
+            <table id="portal_detail_event_history" class="table table-condensed table-striped">
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 }

@@ -14,7 +14,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ FarmLogs.ddl ++ Farms.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table _Temp
    *  @param r Database column r DBType(polygon), Length(2147483647,false) */
@@ -69,6 +69,126 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table Agents */
   lazy val Agents = new TableQuery(tag => new Agents(tag))
+  
+  /** Entity class storing rows of table FarmLogs
+   *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
+   *  @param farmId Database column farm_id DBType(int4)
+   *  @param portalCount Database column portal_count DBType(int4), Default(0)
+   *  @param portalCountR Database column portal_count_r DBType(int4), Default(0)
+   *  @param portalCountE Database column portal_count_e DBType(int4), Default(0)
+   *  @param p8CountR Database column p8_count_r DBType(int4), Default(0)
+   *  @param p8CountE Database column p8_count_e DBType(int4), Default(0)
+   *  @param avrLevel Database column avr_level DBType(float8), Default(0.0)
+   *  @param avrLevelR Database column avr_level_r DBType(float8), Default(0.0)
+   *  @param avrLevelE Database column avr_level_e DBType(float8), Default(0.0)
+   *  @param avrResonatorR Database column avr_resonator_r DBType(float8), Default(0.0)
+   *  @param avrResonatorE Database column avr_resonator_e DBType(float8), Default(0.0)
+   *  @param avrModR Database column avr_mod_r DBType(float8), Default(0.0)
+   *  @param avrModE Database column avr_mod_e DBType(float8), Default(0.0)
+   *  @param avrShieldingR Database column avr_shielding_r DBType(float8), Default(0.0)
+   *  @param avrShieldingE Database column avr_shielding_e DBType(float8), Default(0.0)
+   *  @param hackAvail Database column hack_avail DBType(int4), Default(0)
+   *  @param createdAt Database column created_at DBType(timestamp) */
+  case class FarmLogsRow(id: Int, farmId: Int, portalCount: Int = 0, portalCountR: Int = 0, portalCountE: Int = 0, p8CountR: Int = 0, p8CountE: Int = 0, avrLevel: Double = 0.0, avrLevelR: Double = 0.0, avrLevelE: Double = 0.0, avrResonatorR: Double = 0.0, avrResonatorE: Double = 0.0, avrModR: Double = 0.0, avrModE: Double = 0.0, avrShieldingR: Double = 0.0, avrShieldingE: Double = 0.0, hackAvail: Int = 0, createdAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching FarmLogsRow objects using plain SQL queries */
+  implicit def GetResultFarmLogsRow(implicit e0: GR[Int], e1: GR[Double], e2: GR[java.sql.Timestamp]): GR[FarmLogsRow] = GR{
+    prs => import prs._
+    FarmLogsRow.tupled((<<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Int], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table farm_logs. Objects of this class serve as prototypes for rows in queries. */
+  class FarmLogs(_tableTag: Tag) extends Table[FarmLogsRow](_tableTag, Some("intel"), "farm_logs") {
+    def * = (id, farmId, portalCount, portalCountR, portalCountE, p8CountR, p8CountE, avrLevel, avrLevelR, avrLevelE, avrResonatorR, avrResonatorE, avrModR, avrModE, avrShieldingR, avrShieldingE, hackAvail, createdAt) <> (FarmLogsRow.tupled, FarmLogsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, farmId.?, portalCount.?, portalCountR.?, portalCountE.?, p8CountR.?, p8CountE.?, avrLevel.?, avrLevelR.?, avrLevelE.?, avrResonatorR.?, avrResonatorE.?, avrModR.?, avrModE.?, avrShieldingR.?, avrShieldingE.?, hackAvail.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmLogsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11.get, _12.get, _13.get, _14.get, _15.get, _16.get, _17.get, _18.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(serial), AutoInc, PrimaryKey */
+    val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column farm_id DBType(int4) */
+    val farmId: Column[Int] = column[Int]("farm_id")
+    /** Database column portal_count DBType(int4), Default(0) */
+    val portalCount: Column[Int] = column[Int]("portal_count", O.Default(0))
+    /** Database column portal_count_r DBType(int4), Default(0) */
+    val portalCountR: Column[Int] = column[Int]("portal_count_r", O.Default(0))
+    /** Database column portal_count_e DBType(int4), Default(0) */
+    val portalCountE: Column[Int] = column[Int]("portal_count_e", O.Default(0))
+    /** Database column p8_count_r DBType(int4), Default(0) */
+    val p8CountR: Column[Int] = column[Int]("p8_count_r", O.Default(0))
+    /** Database column p8_count_e DBType(int4), Default(0) */
+    val p8CountE: Column[Int] = column[Int]("p8_count_e", O.Default(0))
+    /** Database column avr_level DBType(float8), Default(0.0) */
+    val avrLevel: Column[Double] = column[Double]("avr_level", O.Default(0.0))
+    /** Database column avr_level_r DBType(float8), Default(0.0) */
+    val avrLevelR: Column[Double] = column[Double]("avr_level_r", O.Default(0.0))
+    /** Database column avr_level_e DBType(float8), Default(0.0) */
+    val avrLevelE: Column[Double] = column[Double]("avr_level_e", O.Default(0.0))
+    /** Database column avr_resonator_r DBType(float8), Default(0.0) */
+    val avrResonatorR: Column[Double] = column[Double]("avr_resonator_r", O.Default(0.0))
+    /** Database column avr_resonator_e DBType(float8), Default(0.0) */
+    val avrResonatorE: Column[Double] = column[Double]("avr_resonator_e", O.Default(0.0))
+    /** Database column avr_mod_r DBType(float8), Default(0.0) */
+    val avrModR: Column[Double] = column[Double]("avr_mod_r", O.Default(0.0))
+    /** Database column avr_mod_e DBType(float8), Default(0.0) */
+    val avrModE: Column[Double] = column[Double]("avr_mod_e", O.Default(0.0))
+    /** Database column avr_shielding_r DBType(float8), Default(0.0) */
+    val avrShieldingR: Column[Double] = column[Double]("avr_shielding_r", O.Default(0.0))
+    /** Database column avr_shielding_e DBType(float8), Default(0.0) */
+    val avrShieldingE: Column[Double] = column[Double]("avr_shielding_e", O.Default(0.0))
+    /** Database column hack_avail DBType(int4), Default(0) */
+    val hackAvail: Column[Int] = column[Int]("hack_avail", O.Default(0))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    
+    /** Foreign key referencing Farms (database name farm_logs_farm_id_fkey) */
+    lazy val farmsFk = foreignKey("farm_logs_farm_id_fkey", farmId, Farms)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)
+    
+    /** Index over (createdAt) (database name farm_logs_idx01) */
+    val index1 = index("farm_logs_idx01", createdAt)
+  }
+  /** Collection-like TableQuery object for table FarmLogs */
+  lazy val FarmLogs = new TableQuery(tag => new FarmLogs(tag))
+  
+  /** Entity class storing rows of table Farms
+   *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
+   *  @param parent Database column parent DBType(int4), Default(None)
+   *  @param name Database column name DBType(varchar), Length(2147483647,true)
+   *  @param kml Database column kml DBType(bytea)
+   *  @param latestLog Database column latest_log DBType(int4), Default(None)
+   *  @param createdAt Database column created_at DBType(timestamp)
+   *  @param updatedAt Database column updated_at DBType(timestamp) */
+  case class FarmsRow(id: Int, parent: Option[Int] = None, name: String, kml: java.sql.Blob, latestLog: Option[Int] = None, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
+  /** GetResult implicit for fetching FarmsRow objects using plain SQL queries */
+  implicit def GetResultFarmsRow(implicit e0: GR[Int], e1: GR[Option[Int]], e2: GR[String], e3: GR[java.sql.Blob], e4: GR[java.sql.Timestamp]): GR[FarmsRow] = GR{
+    prs => import prs._
+    FarmsRow.tupled((<<[Int], <<?[Int], <<[String], <<[java.sql.Blob], <<?[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
+  }
+  /** Table description of table farms. Objects of this class serve as prototypes for rows in queries. */
+  class Farms(_tableTag: Tag) extends Table[FarmsRow](_tableTag, Some("intel"), "farms") {
+    def * = (id, parent, name, kml, latestLog, createdAt, updatedAt) <> (FarmsRow.tupled, FarmsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, parent, name.?, kml.?, latestLog, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmsRow.tupled((_1.get, _2, _3.get, _4.get, _5, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(serial), AutoInc, PrimaryKey */
+    val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column parent DBType(int4), Default(None) */
+    val parent: Column[Option[Int]] = column[Option[Int]]("parent", O.Default(None))
+    /** Database column name DBType(varchar), Length(2147483647,true) */
+    val name: Column[String] = column[String]("name", O.Length(2147483647,varying=true))
+    /** Database column kml DBType(bytea) */
+    val kml: Column[java.sql.Blob] = column[java.sql.Blob]("kml")
+    /** Database column latest_log DBType(int4), Default(None) */
+    val latestLog: Column[Option[Int]] = column[Option[Int]]("latest_log", O.Default(None))
+    /** Database column created_at DBType(timestamp) */
+    val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    /** Database column updated_at DBType(timestamp) */
+    val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
+    
+    /** Index over (parent) (database name farms_idx01) */
+    val index1 = index("farms_idx01", parent)
+    /** Index over (name) (database name farms_idx02) */
+    val index2 = index("farms_idx02", name)
+  }
+  /** Collection-like TableQuery object for table Farms */
+  lazy val Farms = new TableQuery(tag => new Farms(tag))
   
   /** Entity class storing rows of table Geohash
    *  @param geohash Database column geohash DBType(bpchar), PrimaryKey, Length(10,false)
@@ -292,18 +412,22 @@ trait Tables {
    *  @param updatedAt Database column updated_at DBType(timestamp)
    *  @param deletedAt Database column deleted_at DBType(timestamp), Default(None)
    *  @param geohash Database column geohash DBType(bpchar), Length(10,false), Default(None)
-   *  @param verifiedAt Database column verified_at DBType(timestamp) */
-  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None, geohash: Option[String] = None, verifiedAt: java.sql.Timestamp)
+   *  @param verifiedAt Database column verified_at DBType(timestamp)
+   *  @param guardian Database column guardian DBType(int8), Default(0)
+   *  @param mods Database column mods DBType(jsonb), Length(2147483647,false), Default(None)
+   *  @param level Database column level DBType(int2), Default(0)
+   *  @param team Database column team DBType(bpchar), Length(1,false) */
+  case class PortalsRow(id: Int, guid: String, tileKey: String, late6: Int, lnge6: Int, title: String, image: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp, deletedAt: Option[java.sql.Timestamp] = None, geohash: Option[String] = None, verifiedAt: java.sql.Timestamp, guardian: Long = 0L, mods: Option[String] = None, level: Short = 0, team: String)
   /** GetResult implicit for fetching PortalsRow objects using plain SQL queries */
-  implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[java.sql.Timestamp], e3: GR[Option[java.sql.Timestamp]], e4: GR[Option[String]]): GR[PortalsRow] = GR{
+  implicit def GetResultPortalsRow(implicit e0: GR[Int], e1: GR[String], e2: GR[java.sql.Timestamp], e3: GR[Option[java.sql.Timestamp]], e4: GR[Option[String]], e5: GR[Long], e6: GR[Short]): GR[PortalsRow] = GR{
     prs => import prs._
-    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp], <<?[String], <<[java.sql.Timestamp]))
+    PortalsRow.tupled((<<[Int], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<?[java.sql.Timestamp], <<?[String], <<[java.sql.Timestamp], <<[Long], <<?[String], <<[Short], <<[String]))
   }
   /** Table description of table portals. Objects of this class serve as prototypes for rows in queries. */
   class Portals(_tableTag: Tag) extends Table[PortalsRow](_tableTag, Some("intel"), "portals") {
-    def * = (id, guid, tileKey, late6, lnge6, title, image, createdAt, updatedAt, deletedAt, geohash, verifiedAt) <> (PortalsRow.tupled, PortalsRow.unapply)
+    def * = (id, guid, tileKey, late6, lnge6, title, image, createdAt, updatedAt, deletedAt, geohash, verifiedAt, guardian, mods, level, team) <> (PortalsRow.tupled, PortalsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, createdAt.?, updatedAt.?, deletedAt, geohash, verifiedAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, guid.?, tileKey.?, late6.?, lnge6.?, title.?, image.?, createdAt.?, updatedAt.?, deletedAt, geohash, verifiedAt.?, guardian.?, mods, level.?, team.?).shaped.<>({r=>import r._; _1.map(_=> PortalsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get, _13.get, _14, _15.get, _16.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -329,6 +453,14 @@ trait Tables {
     val geohash: Column[Option[String]] = column[Option[String]]("geohash", O.Length(10,varying=false), O.Default(None))
     /** Database column verified_at DBType(timestamp) */
     val verifiedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("verified_at")
+    /** Database column guardian DBType(int8), Default(0) */
+    val guardian: Column[Long] = column[Long]("guardian", O.Default(0L))
+    /** Database column mods DBType(jsonb), Length(2147483647,false), Default(None) */
+    val mods: Column[Option[String]] = column[Option[String]]("mods", O.Length(2147483647,varying=false), O.Default(None))
+    /** Database column level DBType(int2), Default(0) */
+    val level: Column[Short] = column[Short]("level", O.Default(0))
+    /** Database column team DBType(bpchar), Length(1,false) */
+    val team: Column[String] = column[String]("team", O.Length(1,varying=false))
     
     /** Foreign key referencing Geohash (database name portals_geohash_fkey) */
     lazy val geohashFk = foreignKey("portals_geohash_fkey", geohash, Geohash)(r => r.geohash, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.SetNull)

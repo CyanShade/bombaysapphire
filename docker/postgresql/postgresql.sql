@@ -44,6 +44,11 @@ create table intel.portals(
   lnge6 integer not null,
   title varchar not null,
   image varchar not null,
+  -- 現在の状態
+  team char(1) not null,
+  level smallint not null,
+  mods jsonb,
+  guardian bigint not null,
   created_at timestamp not null default current_timestamp,
   verified_at timestamp not null default current_timestamp,
   updated_at timestamp not null default current_timestamp,
@@ -64,14 +69,7 @@ create table intel.portal_event_logs(
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 
-create table intel.agents(
-  id serial not null primary key,
-  name varchar not null unique,
-  team char(1) not null,
-  created_at timestamp not null default current_timestamp
-) with(oids=false);
-
-create unique index agents_idx00 on intel.agents(name);
+create index portal_event_idx00 on intel.portal_event_logs(portal_id);
 
 create table intel.portal_state_logs(
   id serial not null primary key,
@@ -87,6 +85,8 @@ create table intel.portal_state_logs(
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 
+create index portal_state_idx00 on intel.portal_state_logs(portal_id);
+
 create table intel.plexts(
   id bigserial not null primary key,
   guid varchar not null unique,
@@ -101,3 +101,50 @@ create table intel.plexts(
 
 create unique index plexts_guid on intel.plexts(guid);
 
+create table intel.farms(
+  id serial not null primary key,
+  parent integer,
+  name varchar not null,
+  kml bytea not null,
+  latest_log integer,  -- references intel.farm_logs(id) on delete set null,
+  created_at timestamp not null default current_timestamp,
+  updated_at timestamp not null default current_timestamp
+) with(oids=false);
+
+create index farms_idx01 on intel.farms(parent);
+create index farms_idx02 on intel.farms(name);
+
+create table intel.farm_logs(
+  id serial not null primary key,
+  farm_id integer not null references intel.farms(id) on delete cascade,
+  portal_count integer not null default 0,
+  portal_count_r integer not null default 0,
+  portal_count_e integer not null default 0,
+  p8_count_r integer not null default 0,
+  p8_count_e integer not null default 0,
+  avr_level float not null default 0,
+  avr_level_r float not null default 0,
+  avr_level_e float not null default 0,
+  avr_resonator_r float not null default 0,
+  avr_resonator_e float not null default 0,
+  avr_mod_r float not null default 0,
+  avr_mod_e float not null default 0,
+  avr_shielding_r float not null default 0,
+  avr_shielding_e float not null default 0,
+  hack_avail integer not null default 0,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
+
+create index farm_logs_idx00 on intel.farm_logs(farm_id);
+create index farm_logs_idx01 on intel.farm_logs(created_at);
+
+-- 以下未実装
+
+create table intel.agents(
+  id serial not null primary key,
+  name varchar not null unique,
+  team char(1) not null,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
+
+create unique index agents_idx00 on intel.agents(name);

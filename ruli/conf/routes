@@ -7,7 +7,9 @@ GET     /                           controllers.Application.index
 GET     /portal/nearlies            controllers.Application.index
 GET     /portal/eventlogs           controllers.Application.eventlogs
 GET     /portal/events              controllers.Application.events
+GET     /farms                      controllers.Application.farms
 GET     /regions                    controllers.Application.regions
+GET     /api/1.0/portal/:id         controllers.Application.portal(id:Int)
 GET     /api/1.0/portals            controllers.Application.portals(fmt:String ?= "json")
 GET     /api/1.0/portals.:fmt       controllers.Application.portals(fmt)
 
