@@ -177,7 +177,8 @@ class Sentinel extends Application  {
       None
     } else if(engine.getLocation.startsWith("https://accounts.google.com/CheckCookie?")){
       logger.debug(s"CookieCheck page redirect")
-      None
+    } else if(engine.getLocation.startsWith("https://accounts.google.com/b/0/AccountRecoveryOptionsPrompt?")){
+      logger.debug(s"CookieCheck page redirect")
     } else {
       logger.info(s"予期しないページが表示されました: ${engine.getLocation}")
       browser.close()

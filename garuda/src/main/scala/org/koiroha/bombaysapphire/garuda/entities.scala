@@ -75,10 +75,10 @@ package object entities {
     private[this] def saveNewPortal(tm:Timestamp, regionId:String, cp:Portal, gc:GeoCode)(implicit session:Session, context:Context):Int = {
       // ポータルを追加
       Tables.Portals.map{ x =>
-        (x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.createdAt, x.updatedAt)
-      }.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, tm, tm))
-      // 作成イベントを記録
+        (x.guid, x.title, x.image, x.tileKey, x.late6, x.lnge6, x.team, x.level, x.guardian, x.createdAt, x.updatedAt)
+      }.insert((cp.guid, cp.title, cp.image, regionId, cp.latE6, cp.lngE6, cp.team.symbol.toString, cp.level.toShort, 0L, tm, tm))
       val id = Tables.Portals.filter{ _.guid === cp.guid }.map{ _.id }.first
+      // 作成イベントを記録
       savePortalEvent(id, "create", tm)
       // 非同期で行政区を照会して設定
       setGeoHashAsync(cp.guid, cp.latE6, cp.lngE6).onComplete{
@@ -125,8 +125,24 @@ package object entities {
         record.map{ x => (x.tileKey,x.updatedAt) }.update((regionId,tm))
         // logger.info(s"タイルキーを変更しました: ${cp.guid}; ${cp.latE6}/${cp.lngE6}; ${cp.title}; ${p.tileKey} -> $regionId")
       }
+      // ガーディアン日数を計算
+      val enemyCaptured = Tables.PortalStateLogs
+        .filter{ _.portalId === current.id }
+        .sortBy{ _.createdAt.desc }
+        .map{ x => (x.team, x.owner, x.createdAt) }
+        .list
+        .takeWhile{ _._1 == cp.team.symbol.toString }
+        .map{ x => (x._2, x._3) }
+      val guardian = if(enemyCaptured.size <= 1) 0 else {
+        val owner = enemyCaptured.find{ _._1.isDefined }.map{ _._1.get }
+        val owned = enemyCaptured.takeWhile{ p => owner.isEmpty || p._1.isEmpty || owner.get == p._1.get }
+        owned.head._2.getTime - owned.last._2.getTime
+      }
       // 存在確認日時を設定
-      Tables.Portals.filter{ _.id === current.id}.map{ _.verifiedAt }.update(tm)
+      Tables.Portals
+        .filter{ _.id === current.id}
+        .map{ p => (p.team, p.level, p.guardian, p.verifiedAt) }
+        .update((cp.team.symbol.toString, cp.level.toShort, guardian, tm))
     }
 
     /**
@@ -140,6 +156,7 @@ package object entities {
     }.insert((portalId, action, oldValue, newValue, verifiedAt, tm))
 
     private[this] def savePortalState(portalId:Int, p:Portal, tm:Timestamp)(implicit session:Session, context:Context):Unit = {
+      // 状態ログを保存
       Tables.PortalStateLogs.map{ x =>
         (x.portalId, x.level, x.health, x.team, x.resCount, x.createdAt)
       }.insert((portalId, p.level.toShort, p.health.toShort, p.team.symbol.toString, p.resCount.toShort, tm))
