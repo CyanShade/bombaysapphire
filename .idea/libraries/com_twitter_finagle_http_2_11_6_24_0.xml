@@ -3,7 +3,6 @@
     <properties maven-id="com.twitter:finagle-http_2.11:6.24.0" />
     <CLASSES>
       <root url="jar://$MAVEN_REPOSITORY$/com/twitter/finagle-http_2.11/6.24.0/finagle-http_2.11-6.24.0.jar!/" />
-      <root url="jar://$MAVEN_REPOSITORY$/org/scala-lang/scala-library/2.11.4/scala-library-2.11.4.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/com/twitter/finagle-core_2.11/6.24.0/finagle-core_2.11-6.24.0.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/io/netty/netty/3.9.4.Final/netty-3.9.4.Final.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/com/twitter/util-app_2.11/6.23.0/util-app_2.11-6.23.0.jar!/" />

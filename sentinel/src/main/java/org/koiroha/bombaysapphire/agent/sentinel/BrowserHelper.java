@@ -1,25 +1,24 @@
-package org.koiroha.bombaysapphire.agent;
+package org.koiroha.bombaysapphire.agent.sentinel;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
 import javafx.scene.web.WebEngine;
+import org.koiroha.bombaysapphire.agent.Sentinel$;
 import org.slf4j.Logger;
 
-import java.util.function.Consumer;
-
 public class BrowserHelper {
-    public static void init(WebEngine engine, Consumer<WebEngine> succeeder){
+    public static void init(WebEngine engine, Callback succeeder){
         Logger logger = Sentinel$.MODULE$.logger();
         engine.getLoadWorker().stateProperty().addListener(new ChangeListener<Worker.State>(){
             @Override
             public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldValue, Worker.State newValue) {
                 logger.debug("[" + newValue + "] " + engine.getLocation());
                 if(newValue == Worker.State.SUCCEEDED){
-                    succeeder.accept(engine);
-                }/* else if(newValue == Worker.State.FAILED){
-                    // TODO 表示に失敗したときの処理
-                }*/
+                    succeeder.success(engine);
+                } else if(newValue == Worker.State.FAILED){
+                    succeeder.failure(engine);
+                }
             }
         });
         engine.setConfirmHandler((param) -> {
@@ -39,5 +38,9 @@ public class BrowserHelper {
             logger.info("Prompt(" + e + ")");
             return "";
         });
+    }
+    interface Callback {
+        public void success(WebEngine engine);
+        public void failure(WebEngine engine);
     }
 }

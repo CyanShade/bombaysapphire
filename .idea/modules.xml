@@ -2,8 +2,14 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/bombaysapphire.iml" filepath="$PROJECT_DIR$/bombaysapphire.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/bombaysapphire.iml" filepath="$PROJECT_DIR$/.idea/modules/bombaysapphire.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/bombaysapphire-build.iml" filepath="$PROJECT_DIR$/.idea/modules/bombaysapphire-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/garuda/garuda.iml" filepath="$PROJECT_DIR$/garuda/garuda.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/garuda-build.iml" filepath="$PROJECT_DIR$/.idea/modules/garuda-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sentinel/sentinel.iml" filepath="$PROJECT_DIR$/sentinel/sentinel.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sentinel-build.iml" filepath="$PROJECT_DIR$/.idea/modules/sentinel-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/share/share.iml" filepath="$PROJECT_DIR$/share/share.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/share-build.iml" filepath="$PROJECT_DIR$/.idea/modules/share-build.iml" />
     </modules>
   </component>
 </project>
-

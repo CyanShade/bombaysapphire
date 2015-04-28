@@ -7,11 +7,21 @@ GET     /                           controllers.Application.index
 GET     /portal/nearlies            controllers.Application.index
 GET     /portal/eventlogs           controllers.Application.eventlogs
 GET     /portal/events              controllers.Application.events
-GET     /farms                      controllers.Application.farms
 GET     /regions                    controllers.Application.regions
 GET     /api/1.0/portal/:id         controllers.Application.portal(id:Int)
 GET     /api/1.0/portals            controllers.Application.portals(fmt:String ?= "json")
 GET     /api/1.0/portals.:fmt       controllers.Application.portals(fmt)
+
+# ファーム一覧
+GET     /farms                      controllers.Application.farmListView
+GET     /api/1.0/farms              controllers.Application.farmListAPI
+
+# ファーム詳細
+GET     /farm/:id                   controllers.Application.farmView(id:Int)
+GET     /farm/edit/:id              controllers.Application.farmEditView(id:String)
+POST    /farm/edit/:id              controllers.Application.farmEdit(id:String)
+GET     /api/1.0/farm/:id           controllers.Application.farmAPI(id:String)
+POST    /api/1.0/farm/:id           controllers.Application.farmAPI(id:String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

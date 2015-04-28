@@ -3,43 +3,48 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire.agent
+package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{Closeable, File, FileInputStream}
+import java.io.{Closeable, FileInputStream, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.DateFormat
 import java.util.Properties
-import java.util.function.Consumer
 import javafx.application.{Application, Platform}
-import javafx.scene.web.{WebEngine, WebView}
-import javafx.scene.{Group, Scene}
+import javafx.event.{Event, ActionEvent, EventHandler}
+import javafx.scene.Scene
+import javafx.scene.control._
+import javafx.scene.layout.BorderPane
+import javafx.scene.web.{WebView, WebEngine}
 import javafx.stage.Stage
 import javax.net.ssl._
 
-import org.koiroha.bombaysapphire.agent.EmbeddedProxy.Stub
+import org.koiroha.bombaysapphire.agent.{Config, ParasitizedSSLSocketFactory}
 import org.koiroha.bombaysapphire.geom.LatLng
 import org.koiroha.bombaysapphire.{Batch, BombaySapphire}
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Element, Node, NodeList}
 
-import scala.collection.mutable
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Sentinels
+// Sentinel
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
  * JavaFX の WebEngine を使用してサインインと特定位置の表示を自動化。
  *
  * @author Takami Torao
  */
-class Sentinels extends Application  {
-	import Sentinels._
+class Sentinel extends Application  {
+	import org.koiroha.bombaysapphire.agent.sentinel.Sentinel._
 
+	private[this] var configFile:Option[String] = None
 	private[this] var config:Option[Config] = None
 
 	private[this] var proxy:Option[EmbeddedProxy] = None
 	private[this] val tileKeys = new mutable.HashSet[String]()
+
+	private[this] var clients = Map[Int,Client]()
 
 	// ==============================================================================================
 	// アプリケーションの初期化
@@ -56,7 +61,32 @@ class Sentinels extends Application  {
 			prop.load(in)
 			prop.map { case (k, v) => k.toString -> v.toString}.toMap
 		})
+		this.configFile = Some(file)
 		this.config = Some(config)
+
+		// プロキシサーバを起動
+		val proxy = new EmbeddedProxy {
+			private[this] var overLimitCount = 0
+			override def store(clientId: Option[Int], method: String, request: String, response: String): Unit = {
+				config.garuda.store(method, request, response, System.currentTimeMillis)
+			}
+			override def retrieveTileKeys(tileKeys: Set[String]): Unit = Sentinel.this.tileKeys ++= tileKeys
+			override def onOverLimit(clientId: Option[Int]): Unit = {
+				overLimitCount += 1
+				if(overLimitCount >= config.overLimit){
+					logger.error(f"アクセス制限に達しました: $overLimitCount%,d/${config.overLimit}%,d; 哨戒行動を終了します.")
+					clientId.foreach{ id => clients.get(id).foreach{ _.close() } }
+				} else {
+					logger.warn(f"アクセス制限を検知しました: $overLimitCount%,d/${config.overLimit}%,d")
+				}
+			}
+		}
+		this.proxy = Some(proxy)
+
+		// WebEngine 向けにかのサイト向けの SSL 通信を全て localhost:443 に向ける
+		HttpsURLConnection.setDefaultSSLSocketFactory(
+			new ParasitizedSSLSocketFactory(
+				BombaySapphire.RemoteHost, 443, new InetSocketAddress("localhost", proxy.httpsPort)))
 	}
 
 	// ==============================================================================================
@@ -68,65 +98,60 @@ class Sentinels extends Application  {
 	override def start(primaryStage:Stage):Unit = {
 		val config = this.config.get
 
-		// プロキシサーバを起動
-		val proxy = new EmbeddedProxy(config, new Stub {
-			private[this] var overLimitCount = 0
-			override def retrieveTileKeys(tileKeys:Set[String]): Unit = Sentinels.this.tileKeys ++= tileKeys
-			override def onOverLimit():Unit = {
-				overLimitCount += 1
-				if(overLimitCount >= config.overLimit){
-					logger.error(f"アクセス制限に達しました: $overLimitCount%,d/${config.overLimit}%,d; 哨戒行動を終了します.")
-					Platform.runLater(new Runnable(){
-						override def run(): Unit = primaryStage.close()
-					})
-				} else {
-					logger.warn(f"アクセス制限を検知しました: $overLimitCount%,d/${config.overLimit}%,d")
-				}
-			}
-		})
-		this.proxy = Some(proxy)
+		// メニューバー
+		val menuBar = new MenuBar()
+		locally {
+			val file = new Menu("File")
+			val quit = new MenuItem("Quit")
+			quit.setOnAction({ e:ActionEvent => this.quit(primaryStage) })
+			file.getItems.addAll(quit)
+			menuBar.getMenus.addAll(file)
+		}
 
-		// WebEngine 向けにかのサイト向けの SSL 通信を全て localhost:443 に向ける
-		HttpsURLConnection.setDefaultSSLSocketFactory(
-			new ParasitizedSSLSocketFactory(
-				BombaySapphire.RemoteHost, 443, new InetSocketAddress("localhost", proxy.httpsPort)))
+		// ログ出力
+		val log = new TextArea()
+		locally {
+			log.setEditable(false)
+			log.appendText("hello, world\n")
+			log.appendText("this is console message.\n")
+		}
+
+		// クライアント領域
+		val clients = new TabPane()
+		locally {
+			val web = new WebView()
+			web.setZoom(config.scale)
+			web.setMinSize(config.viewSize._1, config.viewSize._2)
+			web.setPrefSize(config.viewSize._1, config.viewSize._2)
+			web.setMaxSize(config.viewSize._1, config.viewSize._2)
+			web.getEngine.load(s"http://${BombaySapphire.RemoteHost}/intel?z=7")
+			val pane = new BorderPane()
+			pane.setCenter(web)
+			val tab = new Tab()
+			tab.setContent(pane)
+			clients.getTabs.add(tab)
+		}
+
+		// 配置
+		val root = new BorderPane()
+		root.setTop(menuBar)
+		root.setCenter(clients)
+		root.setBottom(log)
 
 		// ウィンドウの生成と表示
 		primaryStage.setTitle("Bombay Sapphire")
-		val root = new Group()
 		val scene = new Scene(root, config.viewSize._1, config.viewSize._2)
-		val view = new WebView()
-		view.setZoom(config.scale)
-		view.setMinSize(config.viewSize._1, config.viewSize._2)
-		view.setPrefSize(config.viewSize._1, config.viewSize._2)
-		view.setMaxSize(config.viewSize._1, config.viewSize._2)
-		val engine = view.getEngine
-		engine.setUserDataDirectory(new File(".cache"))
-		root.getChildren.add(view)
 		primaryStage.setScene(scene)
-
-		// なぜか Callback インターフェースが Scala から利用できないため初期化処理だけ Java で行う
-		BrowserHelper.init(engine, new Consumer[WebEngine] {
-			val scenario = new Scenario(config, engine, new Closeable() {
-				val start = System.currentTimeMillis()
-				override def close(): Unit = {
-					val t = System.currentTimeMillis() - start
-					logger.info(f"${t/60/1000}%,d分${t/1000%60}%d秒で哨戒行動を終了しました")
-					primaryStage.close()
-					proxy.close()
-				}
-			})
-			override def accept(e:WebEngine):Unit = scenario.next()
-		})
 		primaryStage.show()
-		engine.setUserAgent(config.userAgent)
-
-		// 初期ページの表示
-		engine.load(s"https://${BombaySapphire.RemoteHost}/intel")
 	}
 
 	override def stop():Unit = {
+		// プロキシサーバの停止
 		proxy.foreach{ _.close() }
+	}
+
+	private[this] def quit(stage:Stage):Unit = {
+		stage.close()
 	}
 
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -230,14 +255,31 @@ class Sentinels extends Application  {
 			}
 		}
 	}
+
+	// ==============================================================================================
+	// アプリケーション設定の保存
+	// ==============================================================================================
+	/**
+	 * アプリケーションの設定を保存します。
+	 */
+	private[this] def save(file:String = configFile.get):Unit = {
+		org.koiroha.bombaysapphire.io.using(new FileOutputStream(file)){ out =>
+			this.config.get.config.foldLeft(new Properties()){ case (p, (key, value)) => p.setProperty(key, value); p }.store(out, "")
+		}
+		this.configFile = Some(file)
+	}
 }
 
-object Sentinels {
-	private[Sentinels] val logger = LoggerFactory.getLogger(classOf[Sentinels])
-	def main(args:Array[String]):Unit = Application.launch(classOf[Sentinels], args:_*)
+object Sentinel {
+	private[Sentinel] val logger = LoggerFactory.getLogger(classOf[Sentinel])
+	def main(args:Array[String]):Unit = Application.launch(classOf[Sentinel], args:_*)
 
 	implicit class _NodeList(nl:NodeList) {
 		def toList:List[Node] = (0 until nl.getLength).map{ nl.item }.toList
+	}
+
+	implicit def _f2EventHandler[T <: Event](f:T=>Unit):EventHandler[T] = new EventHandler[T]{
+		override def handle(e:T):Unit = f(e)
 	}
 
 }

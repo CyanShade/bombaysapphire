@@ -107,12 +107,23 @@ create table intel.farms(
   name varchar not null,
   kml bytea not null,
   latest_log integer,  -- references intel.farm_logs(id) on delete set null,
+  description text not null,
+  formatted_description text not null,
   created_at timestamp not null default current_timestamp,
   updated_at timestamp not null default current_timestamp
 ) with(oids=false);
 
 create index farms_idx01 on intel.farms(parent);
 create index farms_idx02 on intel.farms(name);
+
+create table intel.farm_portals(
+  id serial not null primary key,
+  farm_id integer not null references intel.farms(id) on delete cascade,
+  portal_id integer not null references intel.portals(id) on delete cascade
+) with(oids=false);
+
+create index farm_portals_idx01 on intel.farm_portals(farm_id);
+create index farm_portals_idx02 on intel.farm_portals(portal_id);
 
 create table intel.farm_logs(
   id serial not null primary key,

@@ -6,6 +6,7 @@
 package org.koiroha.bombaysapphire
 
 import java.awt.geom.{Path2D, Point2D, Rectangle2D}
+import java.util.function
 
 import scala.language.reflectiveCalls
 
@@ -103,4 +104,13 @@ package object geom {
 		val toRegion = Region(s"$country $state $city", shapes)
 	}
 
+}
+
+package object func {
+	implicit def _f2Consumer[T](f:T=>Unit):java.util.function.Consumer[T] = new function.Consumer[T]{
+		override def accept(t:T):Unit = f(t)
+	}
+	implicit def _f2Function[T,R](f:T=>R):java.util.function.Function[T,R] = new function.Function[T,R]{
+		override def apply(t:T):R = f(t)
+	}
 }

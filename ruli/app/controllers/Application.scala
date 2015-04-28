@@ -1,13 +1,16 @@
 package controllers
 
+import java.io.File
 import java.sql.Timestamp
 import java.text.{DateFormat, SimpleDateFormat}
 
 import models.Tables
+import org.omg.CosNaming.NamingContextPackage.NotFound
 import org.slf4j.LoggerFactory
 import play.api.db.slick.DBAction
 import play.api.libs.json._
 import play.api.mvc._
+import services.KML
 
 import scala.slick.driver.PostgresDriver.simple._
 import scala.util.Try
@@ -19,10 +22,16 @@ object Application extends Controller {
     Ok(views.html.portals())
   }
 
+  // ==============================================================================================
+  // イベントログの表示
+  // ==============================================================================================
   def eventlogs = Action {
     Ok(views.html.eventlogs())
   }
 
+  // ==============================================================================================
+  // ポータル詳細情報の取得
+  // ==============================================================================================
   def portal(id:Int) = DBAction{ implicit  rs =>
     implicit val session = rs.dbSession
     val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
@@ -71,6 +80,9 @@ object Application extends Controller {
     }
   }
 
+  // ==============================================================================================
+  // ポータル一覧の取得
+  // ==============================================================================================
   def portals(fmt:String) = DBAction { implicit rs =>
     implicit val session = rs.dbSession
     val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")
@@ -86,7 +98,7 @@ object Application extends Controller {
 
     val limit = query.get("limit").map{ _.toInt }.getOrElse(4000)
 
-    val portals = search(query.-("dl", "limit"), limit)
+    val portals = search(query.-("dl", "limit"), limit).filterNot{ p => p.team == "E" && p.guardian >= 60 * 24 * 60 * 60 * 1000L }
     fmt.toLowerCase match {
       case "json" =>
         Ok(Json.toJson(portals.map { case p =>
@@ -125,6 +137,86 @@ object Application extends Controller {
     }
   }
 
+  // ==============================================================================================
+  // ファーム情報の表示
+  // ==============================================================================================
+  def farmListView = Action {
+    Ok(views.html.farms())
+  }
+  def farmListAPI = Action {
+    Ok("farm list API")
+  }
+
+  // ==============================================================================================
+  // ファーム詳細/編集画面
+  // ==============================================================================================
+  def farmView(id:Int) = Action {
+    Ok(views.html.farm(id))
+  }
+  def farmEditView(id:String) = Action {
+    Ok(views.html.farm_edit(Try{ id.toInt }.toOption))
+  }
+  def farmEdit(id:String) = DBAction(parse.multipartFormData) { rs =>
+    val request = rs.request
+    val area = request.body.file("kml").map { kml =>
+      import services.io._
+      val ext = new File(kml.filename).getExtension
+      val file = File.createTempFile("farm_area_", s".$ext")
+      try {
+        kml.ref.moveTo(file, true)
+        KML.fromFile(file)
+      } finally {
+        file.delete()
+      }
+    }
+    System.out.println(s"${area}")
+    /*
+    request.body.file("picture").map { picture =>
+      import java.io.File
+      val filename = picture.filename
+      val contentType = picture.contentType
+      picture.ref.moveTo(new File(s"/tmp/picture/$filename"))
+    }.getOrElse {
+      Redirect(routes.Application.index).flashing(
+        "error" -> "Missing file")
+    }
+    */
+    Ok(s"File uploaded: $id xxx")
+  }
+  def farmAPI(id:String) = DBAction { implicit rs =>
+    implicit val _session = rs.dbSession
+    rs.request.method match {
+      case "GET" =>
+        id match {
+          case "new" =>
+            // ファーム一覧
+            val farms = Tables.Farms.map{ t => (t.id, t.name) }.list
+            Ok(Json.arr(
+              farms.map{ case (id, name) => Json.obj("id" -> id, "name" -> name) }
+            ))
+          case num if Try{ num.toInt }.isSuccess =>
+            // ファーム詳細情報
+            Tables.Farms.filter{ _.id === num.toInt }.firstOption match {
+              case Some(farm) =>
+                Ok(Json.obj(
+                  "id" -> farm.id,
+                  "parent" -> farm.parent,
+                  "name" -> farm.name,
+                  "formatted_description" -> farm.formattedDescription,
+                  "created_at" -> farm.createdAt.getTime,
+                  "updated_at" -> farm.updatedAt.getTime
+                ))
+              case None => NotFound
+            }
+        }
+      case "POST" => Ok("hello, world")
+      case _ => Ok("hello, world")
+    }
+  }
+
+  // ==============================================================================================
+  // イベントログの表示
+  // ==============================================================================================
   def farms = DBAction { implicit rs =>
     implicit val session = rs.dbSession
     val df = new SimpleDateFormat("yyyy/MM/dd HH:mm")

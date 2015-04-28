@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.slick" %% "slick" % "2.1.+",
   "com.typesafe.slick" %% "slick-codegen" % "2.1.+",
   "com.typesafe.play" %% "play-slick" % "0.8.1",
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "latest.integration",
+  "org.scala-lang.modules" %% "scala-xml" %  "latest.integration",
   jdbc,
   anorm,
   cache,

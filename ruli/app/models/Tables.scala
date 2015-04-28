@@ -1,4 +1,5 @@
 package models
+
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
 object Tables extends {
@@ -14,7 +15,7 @@ trait Tables {
   import scala.slick.jdbc.{GetResult => GR}
   
   /** DDL for all tables. Call .create to execute. */
-  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ FarmLogs.ddl ++ Farms.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
+  lazy val ddl = _Temp.ddl ++ Agents.ddl ++ FarmLogs.ddl ++ FarmPortals.ddl ++ Farms.ddl ++ Geohash.ddl ++ HeuristicRegions.ddl ++ Logs.ddl ++ Plexts.ddl ++ PortalEventLogs.ddl ++ Portals.ddl ++ PortalStateLogs.ddl
   
   /** Entity class storing rows of table _Temp
    *  @param r Database column r DBType(polygon), Length(2147483647,false) */
@@ -147,25 +148,58 @@ trait Tables {
   /** Collection-like TableQuery object for table FarmLogs */
   lazy val FarmLogs = new TableQuery(tag => new FarmLogs(tag))
   
+  /** Entity class storing rows of table FarmPortals
+   *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
+   *  @param farmId Database column farm_id DBType(int4)
+   *  @param portalId Database column portal_id DBType(int4) */
+  case class FarmPortalsRow(id: Int, farmId: Int, portalId: Int)
+  /** GetResult implicit for fetching FarmPortalsRow objects using plain SQL queries */
+  implicit def GetResultFarmPortalsRow(implicit e0: GR[Int]): GR[FarmPortalsRow] = GR{
+    prs => import prs._
+    FarmPortalsRow.tupled((<<[Int], <<[Int], <<[Int]))
+  }
+  /** Table description of table farm_portals. Objects of this class serve as prototypes for rows in queries. */
+  class FarmPortals(_tableTag: Tag) extends Table[FarmPortalsRow](_tableTag, Some("intel"), "farm_portals") {
+    def * = (id, farmId, portalId) <> (FarmPortalsRow.tupled, FarmPortalsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (id.?, farmId.?, portalId.?).shaped.<>({r=>import r._; _1.map(_=> FarmPortalsRow.tupled((_1.get, _2.get, _3.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    
+    /** Database column id DBType(serial), AutoInc, PrimaryKey */
+    val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column farm_id DBType(int4) */
+    val farmId: Column[Int] = column[Int]("farm_id")
+    /** Database column portal_id DBType(int4) */
+    val portalId: Column[Int] = column[Int]("portal_id")
+    
+    /** Foreign key referencing Farms (database name farm_portals_farm_id_fkey) */
+    lazy val farmsFk = foreignKey("farm_portals_farm_id_fkey", farmId, Farms)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)
+    /** Foreign key referencing Portals (database name farm_portals_portal_id_fkey) */
+    lazy val portalsFk = foreignKey("farm_portals_portal_id_fkey", portalId, Portals)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)
+  }
+  /** Collection-like TableQuery object for table FarmPortals */
+  lazy val FarmPortals = new TableQuery(tag => new FarmPortals(tag))
+  
   /** Entity class storing rows of table Farms
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param parent Database column parent DBType(int4), Default(None)
    *  @param name Database column name DBType(varchar), Length(2147483647,true)
    *  @param kml Database column kml DBType(bytea)
    *  @param latestLog Database column latest_log DBType(int4), Default(None)
+   *  @param description Database column description DBType(text), Length(2147483647,true)
+   *  @param formattedDescription Database column formatted_description DBType(text), Length(2147483647,true)
    *  @param createdAt Database column created_at DBType(timestamp)
    *  @param updatedAt Database column updated_at DBType(timestamp) */
-  case class FarmsRow(id: Int, parent: Option[Int] = None, name: String, kml: java.sql.Blob, latestLog: Option[Int] = None, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
+  case class FarmsRow(id: Int, parent: Option[Int] = None, name: String, kml: java.sql.Blob, latestLog: Option[Int] = None, description: String, formattedDescription: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
   /** GetResult implicit for fetching FarmsRow objects using plain SQL queries */
   implicit def GetResultFarmsRow(implicit e0: GR[Int], e1: GR[Option[Int]], e2: GR[String], e3: GR[java.sql.Blob], e4: GR[java.sql.Timestamp]): GR[FarmsRow] = GR{
     prs => import prs._
-    FarmsRow.tupled((<<[Int], <<?[Int], <<[String], <<[java.sql.Blob], <<?[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
+    FarmsRow.tupled((<<[Int], <<?[Int], <<[String], <<[java.sql.Blob], <<?[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
   }
   /** Table description of table farms. Objects of this class serve as prototypes for rows in queries. */
   class Farms(_tableTag: Tag) extends Table[FarmsRow](_tableTag, Some("intel"), "farms") {
-    def * = (id, parent, name, kml, latestLog, createdAt, updatedAt) <> (FarmsRow.tupled, FarmsRow.unapply)
+    def * = (id, parent, name, kml, latestLog, description, formattedDescription, createdAt, updatedAt) <> (FarmsRow.tupled, FarmsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, parent, name.?, kml.?, latestLog, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmsRow.tupled((_1.get, _2, _3.get, _4.get, _5, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, parent, name.?, kml.?, latestLog, description.?, formattedDescription.?, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmsRow.tupled((_1.get, _2, _3.get, _4.get, _5, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -177,6 +211,10 @@ trait Tables {
     val kml: Column[java.sql.Blob] = column[java.sql.Blob]("kml")
     /** Database column latest_log DBType(int4), Default(None) */
     val latestLog: Column[Option[Int]] = column[Option[Int]]("latest_log", O.Default(None))
+    /** Database column description DBType(text), Length(2147483647,true) */
+    val description: Column[String] = column[String]("description", O.Length(2147483647,varying=true))
+    /** Database column formatted_description DBType(text), Length(2147483647,true) */
+    val formattedDescription: Column[String] = column[String]("formatted_description", O.Length(2147483647,varying=true))
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
     /** Database column updated_at DBType(timestamp) */

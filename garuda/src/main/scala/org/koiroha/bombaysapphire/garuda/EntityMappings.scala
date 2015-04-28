@@ -37,7 +37,7 @@ case object Enlightened extends Team('E')
 case object Neutral extends Team('N')
 
 // getGameScore
-case class GameScore(enlightened:Int, resistance:Int)
+case class GameScore(enlightened:Long, resistance:Long)
 object GameScore {
 	private[this] val logger = LoggerFactory.getLogger(classOf[GameScore])
 	private[this] implicit val formats = DefaultFormats
@@ -48,7 +48,7 @@ object GameScore {
 			logger.warn(s"invalid GameScore result: $value")
 			None
 		} else {
-			value transformOpt Some(GameScore(value(0).toInt, value(1).toInt))
+			value transformOpt Some(GameScore(value(0).toLong, value(1).toLong))
 		}
 	}
 }
@@ -348,6 +348,13 @@ object Implicit {
 			case i:JDouble => i.num.toInt
 			case i:JDecimal => i.num.toInt
 			case i:JString => i.s.toInt
+			case unknown => throw new NumberFormatException(unknown.toString)
+		}
+		def toLong:Long = value match {
+			case i:JInt => i.num.toLong
+			case i:JDouble => i.num.toLong
+			case i:JDecimal => i.num.toLong
+			case i:JString => i.s.toLong
 			case unknown => throw new NumberFormatException(unknown.toString)
 		}
 		def toList:List[JValue] = value match {

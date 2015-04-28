@@ -16,13 +16,19 @@ import scala.xml.Elem
 case class Config() {
 }
 
+/**
+ *
+ * @param name Google アカウント
+ * @param password パスワード
+ * @param achievements アカウントの使用実績
+ */
 case class Account(name:String, password:String, var achievements:Account.Achievements)
 
 object Account {
 	/**
 	 * アカウントの使用実績。
 	 * @param inLimited このアカウントが規制中かどうか
-	 * @param loggedIn ログイン回数。
+	 * @param loggedIn ログイン回数
 	 * @param used リクエスト成功時刻 (制限検知用)
 	 */
 	case class Achievements(inLimited:Boolean = false, loggedIn:Int = 0, used:Seq[Long] = Seq()) {
