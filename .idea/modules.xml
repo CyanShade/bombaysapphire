@@ -6,6 +6,8 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/bombaysapphire-build.iml" filepath="$PROJECT_DIR$/.idea/modules/bombaysapphire-build.iml" />
       <module fileurl="file://$PROJECT_DIR$/garuda/garuda.iml" filepath="$PROJECT_DIR$/garuda/garuda.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/garuda-build.iml" filepath="$PROJECT_DIR$/.idea/modules/garuda-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ruli/.idea/modules/root.iml" filepath="$PROJECT_DIR$/ruli/.idea/modules/root.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ruli/.idea/modules/root-build.iml" filepath="$PROJECT_DIR$/ruli/.idea/modules/root-build.iml" />
       <module fileurl="file://$PROJECT_DIR$/sentinel/sentinel.iml" filepath="$PROJECT_DIR$/sentinel/sentinel.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sentinel-build.iml" filepath="$PROJECT_DIR$/.idea/modules/sentinel-build.iml" />
       <module fileurl="file://$PROJECT_DIR$/share/share.iml" filepath="$PROJECT_DIR$/share/share.iml" />

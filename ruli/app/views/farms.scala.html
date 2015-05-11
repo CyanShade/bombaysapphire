@@ -1,10 +1,21 @@
+@import models.farm.Farm
+@(farms:Seq[Farm])
+
 @main("farms") {
 <div class="page-header" id="main_portal">
   <div class="row">
     <div class="col-md-12">
       <h1>Farms</h1>
-      <a href="@(routes.Application.farmEditView("new"))">新規ファーム追加</a>
+      <a href="@(routes.FarmController.farmEditView("new"))">新規ファーム追加</a>
+    </div>
+    <div class="col-md-3">
+      <div class="list-group" id="farm_list">
+      </div>
+    </div>
+    <div class="col-md-6" id="farm_desc">
     </div>
   </div>
 </div>
+
+<script src="@(routes.FarmController.farmJS)" type="text/javascript"></script>
 }

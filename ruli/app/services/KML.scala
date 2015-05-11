@@ -6,7 +6,6 @@ import java.util.zip.ZipFile
 import org.slf4j.LoggerFactory
 import org.xml.sax.InputSource
 
-import scala.util.matching.Regex
 import scala.xml.XML
 import scala.collection.JavaConversions._
 

@@ -1,5 +1,4 @@
 package models
-
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
 object Tables extends {
@@ -183,23 +182,23 @@ trait Tables {
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param parent Database column parent DBType(int4), Default(None)
    *  @param name Database column name DBType(varchar), Length(2147483647,true)
-   *  @param kml Database column kml DBType(bytea)
+   *  @param area Database column area DBType(text), Length(2147483647,true)
    *  @param latestLog Database column latest_log DBType(int4), Default(None)
    *  @param description Database column description DBType(text), Length(2147483647,true)
    *  @param formattedDescription Database column formatted_description DBType(text), Length(2147483647,true)
    *  @param createdAt Database column created_at DBType(timestamp)
    *  @param updatedAt Database column updated_at DBType(timestamp) */
-  case class FarmsRow(id: Int, parent: Option[Int] = None, name: String, kml: java.sql.Blob, latestLog: Option[Int] = None, description: String, formattedDescription: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
+  case class FarmsRow(id: Int, parent: Option[Int] = None, name: String, area: String, latestLog: Option[Int] = None, description: String, formattedDescription: String, createdAt: java.sql.Timestamp, updatedAt: java.sql.Timestamp)
   /** GetResult implicit for fetching FarmsRow objects using plain SQL queries */
-  implicit def GetResultFarmsRow(implicit e0: GR[Int], e1: GR[Option[Int]], e2: GR[String], e3: GR[java.sql.Blob], e4: GR[java.sql.Timestamp]): GR[FarmsRow] = GR{
+  implicit def GetResultFarmsRow(implicit e0: GR[Int], e1: GR[Option[Int]], e2: GR[String], e3: GR[java.sql.Timestamp]): GR[FarmsRow] = GR{
     prs => import prs._
-    FarmsRow.tupled((<<[Int], <<?[Int], <<[String], <<[java.sql.Blob], <<?[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
+    FarmsRow.tupled((<<[Int], <<?[Int], <<[String], <<[String], <<?[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
   }
   /** Table description of table farms. Objects of this class serve as prototypes for rows in queries. */
   class Farms(_tableTag: Tag) extends Table[FarmsRow](_tableTag, Some("intel"), "farms") {
-    def * = (id, parent, name, kml, latestLog, description, formattedDescription, createdAt, updatedAt) <> (FarmsRow.tupled, FarmsRow.unapply)
+    def * = (id, parent, name, area, latestLog, description, formattedDescription, createdAt, updatedAt) <> (FarmsRow.tupled, FarmsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, parent, name.?, kml.?, latestLog, description.?, formattedDescription.?, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmsRow.tupled((_1.get, _2, _3.get, _4.get, _5, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, parent, name.?, area.?, latestLog, description.?, formattedDescription.?, createdAt.?, updatedAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmsRow.tupled((_1.get, _2, _3.get, _4.get, _5, _6.get, _7.get, _8.get, _9.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -207,8 +206,8 @@ trait Tables {
     val parent: Column[Option[Int]] = column[Option[Int]]("parent", O.Default(None))
     /** Database column name DBType(varchar), Length(2147483647,true) */
     val name: Column[String] = column[String]("name", O.Length(2147483647,varying=true))
-    /** Database column kml DBType(bytea) */
-    val kml: Column[java.sql.Blob] = column[java.sql.Blob]("kml")
+    /** Database column area DBType(text), Length(2147483647,true) */
+    val area: Column[String] = column[String]("area", O.Length(2147483647,varying=true))
     /** Database column latest_log DBType(int4), Default(None) */
     val latestLog: Column[Option[Int]] = column[Option[Int]]("latest_log", O.Default(None))
     /** Database column description DBType(text), Length(2147483647,true) */

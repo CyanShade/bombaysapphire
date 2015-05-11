@@ -17,6 +17,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-slick" % "0.8.1",
   "org.scala-lang.modules" %% "scala-parser-combinators" % "latest.integration",
   "org.scala-lang.modules" %% "scala-xml" %  "latest.integration",
+  "org.commonjava.googlecode.markdown4j" % "markdown4j" % "latest.integration",
+  "org.slf4j" % "slf4j-api" % "latest.integration",
   jdbc,
   anorm,
   cache,

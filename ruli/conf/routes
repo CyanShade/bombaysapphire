@@ -4,24 +4,28 @@
 
 # Home page
 GET     /                           controllers.Application.index
-GET     /portal/nearlies            controllers.Application.index
-GET     /portal/eventlogs           controllers.Application.eventlogs
-GET     /portal/events              controllers.Application.events
+GET     /portal/events              controllers.PortalController.events
+
+# ポータル
+GET     /portal/nearlies            controllers.PortalController.index
+GET     /portal/eventlogs           controllers.PortalController.eventlogs
 GET     /regions                    controllers.Application.regions
-GET     /api/1.0/portal/:id         controllers.Application.portal(id:Int)
-GET     /api/1.0/portals            controllers.Application.portals(fmt:String ?= "json")
-GET     /api/1.0/portals.:fmt       controllers.Application.portals(fmt)
+GET     /api/1.0/portal/:id         controllers.PortalController.portal(id:Int)
+GET     /api/1.0/portals            controllers.PortalController.portals(fmt:String ?= "json")
+GET     /api/1.0/portals.:fmt       controllers.PortalController.portals(fmt)
 
 # ファーム一覧
-GET     /farms                      controllers.Application.farmListView
-GET     /api/1.0/farms              controllers.Application.farmListAPI
+GET     /farms                      controllers.FarmController.farmListView
+GET     /farms.js                   controllers.FarmController.farmJS
 
 # ファーム詳細
-GET     /farm/:id                   controllers.Application.farmView(id:Int)
-GET     /farm/edit/:id              controllers.Application.farmEditView(id:String)
-POST    /farm/edit/:id              controllers.Application.farmEdit(id:String)
-GET     /api/1.0/farm/:id           controllers.Application.farmAPI(id:String)
-POST    /api/1.0/farm/:id           controllers.Application.farmAPI(id:String)
+GET     /api/1.0/farms              controllers.FarmController.farmListAPI
+GET     /api/1.0/farm/:id           controllers.FarmController.farmAPI(id:Int)
+
+#GET     /farm/:id                   controllers.FarmController.farmView(id:Int)
+GET     /farm/edit/:id              controllers.FarmController.farmEditView(id:String)
+POST    /farm/edit/:id              controllers.FarmController.farmEdit(id:String)
+#POST    /api/1.0/farm/:id           controllers.FarmController.farmAPI(id:String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

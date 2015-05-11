@@ -105,7 +105,7 @@ create table intel.farms(
   id serial not null primary key,
   parent integer,
   name varchar not null,
-  kml bytea not null,
+  area text not null,
   latest_log integer,  -- references intel.farm_logs(id) on delete set null,
   description text not null,
   formatted_description text not null,

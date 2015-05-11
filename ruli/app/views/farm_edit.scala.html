@@ -26,7 +26,7 @@
         /** Database column updated_at DBType(timestamp) */
         val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
       -->
-      @helper.form(action = routes.Application.farmEdit(id.map{_.toString}.getOrElse("new")), 'enctype -> "multipart/form-data") {
+      @helper.form(action = routes.FarmController.farmEdit(id.map{_.toString}.getOrElse("new")), 'enctype -> "multipart/form-data") {
         <div class="form-group">
           <label for="parent">所属するより大域なファームまたは地域</label>
           <select id="parent" name="parent" class="form-control">
