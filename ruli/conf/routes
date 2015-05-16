@@ -4,28 +4,27 @@
 
 # Home page
 GET     /                           controllers.Application.index
-GET     /portal/events              controllers.PortalController.events
+GET     /portal/events              controllers.Portals.events
 
 # ポータル
-GET     /portal/nearlies            controllers.PortalController.index
-GET     /portal/eventlogs           controllers.PortalController.eventlogs
-GET     /regions                    controllers.Application.regions
-GET     /api/1.0/portal/:id         controllers.PortalController.portal(id:Int)
-GET     /api/1.0/portals            controllers.PortalController.portals(fmt:String ?= "json")
-GET     /api/1.0/portals.:fmt       controllers.PortalController.portals(fmt)
+GET     /portal/nearlies            controllers.Portals.index
+GET     /portal/eventlogs           controllers.Portals.eventlogs
+#GET     /regions                    controllers.Application.regions
+GET     /api/1.0/portal/:id         controllers.Portals.portal(id:Int)
+GET     /api/1.0/portals            controllers.Portals.portals(fmt:String ?= "json")
+GET     /api/1.0/portals.:fmt       controllers.Portals.portals(fmt)
 
 # ファーム一覧
-GET     /farms                      controllers.FarmController.farmListView
-GET     /farms.js                   controllers.FarmController.farmJS
+GET     /farms                      controllers.Farms.index
+GET     /farms/:id                  controllers.Farms.farm(id:Int)
+GET     /farms/:id/icon.png         controllers.Farms.icon(id:Int)
 
-# ファーム詳細
-GET     /api/1.0/farms              controllers.FarmController.farmListAPI
-GET     /api/1.0/farm/:id           controllers.FarmController.farmAPI(id:Int)
-
-#GET     /farm/:id                   controllers.FarmController.farmView(id:Int)
-GET     /farm/edit/:id              controllers.FarmController.farmEditView(id:String)
-POST    /farm/edit/:id              controllers.FarmController.farmEdit(id:String)
-#POST    /api/1.0/farm/:id           controllers.FarmController.farmAPI(id:String)
+# ファーム編集
+GET     /farm/edit/new              controllers.Farms.editView(id:Int ?= -1)
+GET     /farm/edit/:id              controllers.Farms.editView(id:Int)
+POST    /farm/edit/new              controllers.Farms.edit(id:Int ?= -1)
+POST    /farm/edit/:id              controllers.Farms.edit(id:Int)
 
 # Map static resources from the /public folder to the /assets URL path
+GET     /assets/javascripts/ruli.js controllers.Application.sharedJS
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

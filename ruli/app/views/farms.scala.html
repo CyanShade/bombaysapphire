@@ -1,21 +1,30 @@
-@import models.farm.Farm
-@(farms:Seq[Farm])
+@(farms:Seq[models.farms.Summary])
 
 @main("farms") {
 <div class="page-header" id="main_portal">
   <div class="row">
     <div class="col-md-12">
       <h1>Farms</h1>
-      <a href="@(routes.FarmController.farmEditView("new"))">新規ファーム追加</a>
+      <ol class="breadcrumb">
+        <li><a href="@routes.Farms.index">Farm</a></li>
+      </ol>
+      <a href="@(routes.Farms.editView(-1))">新規ファーム追加</a>
     </div>
     <div class="col-md-3">
-      <div class="list-group" id="farm_list">
+      <div class="list-group">
+        @for(f <- farms){
+        <a href="@routes.Farms.farm(f.id)" class="list-group-item">
+          <h4 class="list-group-item-heading">
+            <img src="@routes.Farms.icon(f.id)" width="32"/>
+            @f.name
+          </h4>
+          <p class="list-group-item-text">
+            <small>@f.address</small>
+          </p>
+        </a>
+        }
       </div>
-    </div>
-    <div class="col-md-6" id="farm_desc">
     </div>
   </div>
 </div>
-
-<script src="@(routes.FarmController.farmJS)" type="text/javascript"></script>
 }

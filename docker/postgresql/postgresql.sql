@@ -105,16 +105,25 @@ create table intel.farms(
   id serial not null primary key,
   parent integer,
   name varchar not null,
-  area text not null,
-  latest_log integer,  -- references intel.farm_logs(id) on delete set null,
+  address varchar not null default '',
   description text not null,
   formatted_description text not null,
+  icon bytea,
+  external_kml_url text,
+  latest_activity integer,  -- references intel.farm_activities(id) on delete set null,
   created_at timestamp not null default current_timestamp,
   updated_at timestamp not null default current_timestamp
 ) with(oids=false);
 
 create index farms_idx01 on intel.farms(parent);
 create index farms_idx02 on intel.farms(name);
+
+create table intel.farm_regions(
+  id serial not null primary key,
+  farm_id integer not null references intel.farms(id) on delete cascade,
+  region polygon not null,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
 
 create table intel.farm_portals(
   id serial not null primary key,
@@ -125,7 +134,7 @@ create table intel.farm_portals(
 create index farm_portals_idx01 on intel.farm_portals(farm_id);
 create index farm_portals_idx02 on intel.farm_portals(portal_id);
 
-create table intel.farm_logs(
+create table intel.farm_activities(
   id serial not null primary key,
   farm_id integer not null references intel.farms(id) on delete cascade,
   portal_count integer not null default 0,

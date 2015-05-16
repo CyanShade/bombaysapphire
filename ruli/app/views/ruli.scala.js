@@ -144,6 +144,53 @@ $(function(){
     return "今";
   }
 
+  /*
+   * 緯度/経度から行政区を取得。
+   * @@param latitude 緯度
+   * @@param longitude 経度
+   * @@param success(address)
+   * @@param failure(message)
+   */
+  function get_address(latitude, longitude, success, failure){
+    var goecode = "http://maps.googleapis.com/maps/api/geocode/json?latlng=" + latitude + "," + longitude + "&sensor=false";
+    $.getJSON(goecode, function(json){
+      if(json.status == "OK"){
+        success(json.results[0].formatted_address);
+      } else if(failure){
+        // 取得に失敗した場合 (QUERY_LIMITなど)
+        failure(json.status + ": " + json.error_message);
+      }
+    });
+    return;
+  }
+
+  /*
+   * geolocation を使用して非同期で緯度/経度の取得。
+   * @@param success(latitude, longitude)
+   */
+  function get_current_location(success){
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(function(position){
+        success(position.coords.latitude, position.coords.longitude);
+      });
+    }
+    return;
+  }
+
+  /*
+   * geolocation を使用して非同期で住所の取得。
+   * @@param success(address)
+   * @@param failure(latitude, longitude, message);
+   */
+  function get_current_address(success, failure){
+    get_current_location(function(lat, lng){
+      get_address(lat, lng, success, function(msg){
+        failure(lat, lng, msg);
+      });
+    });
+    return;
+  }
+
   ruli = {
     remoteHost: RemoteHost,
     createAddressLink: create_address_link,
@@ -167,7 +214,10 @@ $(function(){
       },
       pinnedGMapUrl: function(title,ll){
         return "http://maps.google.co.jp/maps?q=" + ll.lat() + "," + ll.lng() + "+" + encodeURIComponent(title);
-      }
+      },
+      getAddress: get_address,
+      getCurrentLocation: get_current_location,
+      getCurrentAddress: get_current_address
     }
   };
 

@@ -15,9 +15,15 @@ object Application extends Controller {
     Ok(views.html.portals())
   }
 
+  def sharedJS = Action {
+    Ok(views.js.ruli())
+  }
+
+  /*
   def regions = Action {
     Ok(views.html.index("Your new application is ready."))
   }
+  */
 
   class BadRequest(msg:String) extends Exception(msg)
 

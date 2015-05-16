@@ -1,7 +1,7 @@
 package services
 
-import java.io.{File, Closeable}
-import scala.collection.JavaConversions._
+import java.io.{Closeable, File, InputStream}
+import java.nio.file.Files
 
 package object io {
 
@@ -21,6 +21,12 @@ package object io {
         ""
       }
     }
+    def toByteArray:Array[Byte] = Files.readAllBytes(file.toPath)
+  }
+
+
+  implicit class _InputStream(in:InputStream){
+    def toByteArray:Array[Byte] = Stream.continually{ in.read() }.takeWhile{ _ >= 0 }.map{ _.toByte }.toArray
   }
 }
 

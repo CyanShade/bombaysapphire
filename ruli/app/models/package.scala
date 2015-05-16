@@ -7,6 +7,22 @@ package models
 
 import org.markdown4j.Markdown4jProcessor
 
+package object farms {
+	case class Summary(id:Int, name:String, address:String, description:String)
+	case class Description(id:Int, name:String, address:String, kml:String, description:String)
+	object Description {
+		def apply(f:Tables.Farms#TableElementType):Description = {
+			Description(f.id, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.formattedDescription)
+		}
+	}
+	case class Edit(id:Int, parent:Option[Int], name:String, address:String, kml:String, description:String)
+	object Edit {
+		def parse(f:Tables.Farms#TableElementType):Edit = {
+			Edit(f.id, f.parent, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.description)
+		}
+	}
+}
+
 package object util {
 
 	object markdown {

@@ -1,7 +1,45 @@
-@(farm:Tables.Farms#TableElementType)
-<div>
-  <h2>@farm.name</h2>
-  <div>
-    @Html(farm.formattedDescription)
+@(farm:models.farms.Description)
+
+@main("farms") {
+<div class="page-header" id="main_farm">
+  <div class="row">
+    <div class="col-md-12">
+      <h1>Farms</h1>
+      <ol class="breadcrumb">
+        <li><a href="@routes.Farms.index">ファーム</a></li>
+        <li class="active">@farm.name</li>
+      </ol>
+    </div>
   </div>
+  <div class="row">
+    <div class="col-md-7">
+      <h2>@farm.name</h2>
+      <div>@Html(farm.description)</div>
+    </div>
+    <div class="col-md-5">
+      <div id="farm_map" style="height:320px;"></div>
+    </div>
+  </div>
+  <a href="@(routes.Farms.editView(farm.id))">編集</a>
 </div>
+
+<script type="text/javascript">
+$(function(){
+  // デフォルトの地図を表示
+  var map = new google.maps.Map($("#farm_map").get(0), {
+    zoom: 24,
+    mapTypeId: google.maps.MapTypeId.ROADMAP
+  });
+  /*
+  ruli.gmap.getCurrentLocation(function(lat, lng){
+    map.setCenter(new google.maps.LatLng(lat, lng));
+  });
+  */
+  // KML の表示
+  var kmlLayer = new google.maps.KmlLayer({
+    map: map,
+    url: "@Html(farm.kml)"
+  });
+});
+</script>
+}

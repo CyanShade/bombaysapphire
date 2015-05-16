@@ -1,7 +1,0 @@
-@(farms:Seq[Tables.Farms#TableElementType])
-@for(farm <- farms){
-<a href="@routes.FarmController.farmListView#!@farm.id" class="list-group-item farm" data-farm_id="@farm.id" id="farm_@farm.id">
-  <h4 class="list-group-item-heading">@farm.name</h4>
-  <p class="list-group-item-text">@Html(farm.formattedDescription)</p>
-</a>
-}

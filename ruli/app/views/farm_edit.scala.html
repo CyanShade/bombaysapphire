@@ -1,4 +1,4 @@
-@(id:Option[Int])
+@(farm:models.farms.Edit, farms:Seq[(Int,String,String)])
 @main("farms") {
 <div class="page-header">
   <div class="row">
@@ -6,51 +6,33 @@
       <h1>ファームの新規追加/編集/削除</h1>
     </div>
     <div class="col-md-5">
-      <!--
-        /** Database column id DBType(serial), AutoInc, PrimaryKey */
-        val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
-        /** Database column parent DBType(int4), Default(None) */
-        val parent: Column[Option[Int]] = column[Option[Int]]("parent", O.Default(None))
-        /** Database column name DBType(varchar), Length(2147483647,true) */
-        val name: Column[String] = column[String]("name", O.Length(2147483647,varying=true))
-        /** Database column kml DBType(bytea) */
-        val kml: Column[java.sql.Blob] = column[java.sql.Blob]("kml")
-        /** Database column latest_log DBType(int4), Default(None) */
-        val latestLog: Column[Option[Int]] = column[Option[Int]]("latest_log", O.Default(None))
-        /** Database column description DBType(text), Length(2147483647,true) */
-        val description: Column[String] = column[String]("description", O.Length(2147483647,varying=true))
-        /** Database column formatted_description DBType(text), Length(2147483647,true) */
-        val formattedDescription: Column[String] = column[String]("formatted_description", O.Length(2147483647,varying=true))
-        /** Database column created_at DBType(timestamp) */
-        val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
-        /** Database column updated_at DBType(timestamp) */
-        val updatedAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_at")
-      -->
-      @helper.form(action = routes.FarmController.farmEdit(id.map{_.toString}.getOrElse("new")), 'enctype -> "multipart/form-data") {
+      @helper.form(action = routes.Farms.edit(farm.id), 'enctype -> "multipart/form-data") {
         <div class="form-group">
           <label for="parent">所属するより大域なファームまたは地域</label>
           <select id="parent" name="parent" class="form-control">
             <option value="" selected>なし</option>
+            @farms.foreach{ case (id, name, address) =>
+            <option value="@id">@name (@address)</option>
+            }
           </select>
         </div>
+      <div class="form-group">
+        <label for="name">ファームの名前</label>
+        <input type="text" class="form-control" id="name" name="name" placeholder="名前" value="@farm.name"/>
+      </div>
         <div class="form-group">
-          <label for="name">名前</label>
-          <input type="text" class="form-control" id="name" name="name" placeholder=""/>
+          <label for="icon">アイコン画像 (PNG, 64kBまで, 省略可)</label>
+          <input type="file" class="form-control" id="icon" name="icon"/>
         </div>
-      <div class="form-group">
-        <label for="kml">領域</label>
-        <input type="file" class="form-control" id="kml" name="kml"/>
-        <p class="help-block">ファームの領域を示す KML または KMZ ファイルを指定してください。</p>
-      </div>
-      <div class="form-group">
-        <label for="description">詳細情報</label>
-        <textarea class="form-control" id="description" name="description"></textarea>
-        <p class="help-block">
-          <a href="http://qiita.com/Qiita/items/c686397e4a0f4f11683d" target="_markdown">Markdown</a>
-          書式が使用できます。
-        </p>
-      </div>
-      <button type="submit" class="btn btn-default">更新</button>
+        <div class="form-group">
+          <label for="external_kml_url">領域を示す公開 KML または KMZ ファイルの URL</label>
+          <input type="text" class="form-control" id="external_kml_url" name="external_kml_url" value="@farm.kml"/>
+        </div>
+        <div class="form-group">
+          <label for="description">詳細情報 (<a href="http://qiita.com/Qiita/items/c686397e4a0f4f11683d" target="_markdown">Markdown</a> 書式)</label>
+          <textarea class="form-control" id="description" name="description">@farm.description</textarea>
+        </div>
+        <button type="submit" class="btn btn-default">更新</button>
       }
     </div>
   </div>

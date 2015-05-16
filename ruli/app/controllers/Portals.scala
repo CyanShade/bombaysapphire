@@ -12,7 +12,7 @@ import play.api.mvc._
 import scala.slick.driver.PostgresDriver.simple._
 import scala.util.Try
 
-object PortalController extends Controller {
+object Portals extends Controller {
   import controllers.Application._
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
@@ -133,10 +133,6 @@ object PortalController extends Controller {
         ).withHeaders(additionalHeaders:_*)
       case _ => BadRequest
     }
-  }
-
-  def regions = Action {
-    Ok(views.html.index("Your new application is ready."))
   }
 
   /**
