@@ -4,11 +4,26 @@
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
 
+import controllers.Sentinel
+import play.api._
+
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Global
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
  * @author Takami Torao
  */
-class Global {
+
+object Global extends GlobalSettings {
+
+	override def onStart(app: Application) {
+		Sentinel.startBatches()
+		Logger.info("Application has started")
+	}
+
+	override def onStop(app: Application) {
+		Sentinel.stopBatches()
+		Logger.info("Application shutdown...")
+	}
+
 }

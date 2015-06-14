@@ -10,6 +10,7 @@ import java.io.IOException
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
+import scala.language.reflectiveCalls
 
 package object io {
 	private[this] val logger = LoggerFactory.getLogger("org.koiroha.bombaysapphire.io")

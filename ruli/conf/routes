@@ -25,6 +25,9 @@ GET     /farm/edit/:id              controllers.Farms.editView(id:Int)
 POST    /farm/edit/new              controllers.Farms.edit(id:Int ?= -1)
 POST    /farm/edit/:id              controllers.Farms.edit(id:Int)
 
+# Sentinel
+GET     /api/1.0/sentinel/tasks      controllers.Sentinel.tasks
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/javascripts/ruli.js controllers.Application.sharedJS
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

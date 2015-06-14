@@ -1,19 +1,25 @@
 package controllers
 
 import java.io.File
+import java.net.URL
 import java.sql.Timestamp
 
 import models.Tables
 import org.koiroha.bombaysapphire._
 import org.slf4j.LoggerFactory
+import play.api.Play.current
 import play.api.db.slick.DBAction
 import play.api.libs.Files
+import play.api.libs.concurrent.Akka
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import play.api.mvc._
 import services.io._
 
+import scala.concurrent.duration._
 import scala.slick.driver.PostgresDriver
 import scala.slick.driver.PostgresDriver.simple._
+import scala.slick.jdbc.StaticQuery.interpolation
 import scala.util.Try
 
 object Farms extends Controller {
@@ -42,10 +48,10 @@ object Farms extends Controller {
   def farm(id:Int) = DBAction { rs =>
     val request = rs.request
     implicit val _session = rs.dbSession
-
-    Tables.Farms.filter{ _.id === id }.firstOption.map{ models.farms.Description.apply } match {
-      case Some(farm) =>
-        Ok(views.html.farm(farm))
+    Tables.Farms.filter{ _.id === id }.firstOption match {
+      case Some(f) =>
+        val portals = Tables.FarmPortals.filter{ _.farmId === f.id }.length.run
+        Ok(views.html.farm(models.farms.Description(f.id, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.formattedDescription, portals)))
       case None => NotFound
     }
   }
@@ -106,6 +112,11 @@ object Farms extends Controller {
       val fid = update(id, parentId, name, desc, kml)
       updateIcon(fid, icon)
       fid
+    }
+
+    // 非同期でファーム領域情報を更新
+    Akka.system.scheduler.scheduleOnce(0.seconds){
+      asyncF(farmId)
     }
 
     Redirect(routes.Farms.farm(farmId)).flashing( "message" -> s"ファーム $name を更新しました")
@@ -269,6 +280,43 @@ object Farms extends Controller {
         file.delete()
         None
       } else Some(file)
+    }
+  }
+
+  private[this] def asyncF(id:Int):Unit = play.api.db.slick.DB.withTransaction{ implicit _session =>
+    updateFarm(id)
+  }
+
+  private[this] def updateFarm(id:Int)(implicit _session:PostgresDriver.Backend#Session):Unit = {
+    Tables.Farms.filter{ _.id === id }.map{ _.externalKmlUrl }.firstOption match {
+      case Some(None) =>
+        logger.debug(s"外部URLではない")
+      case Some(Some(url)) =>
+        org.koiroha.bombaysapphire.geom.Region.fromKML(new URL(url)) match {
+          case Some(region) =>
+            val now = new Timestamp(System.currentTimeMillis())
+            _session.withTransaction{
+              Tables.FarmRegions.filter{ _.farmId === id }.delete
+              Tables.FarmPortals.filter{ _.farmId === id }.delete
+              // 領域定義の入れ替え
+              region.parts.foreach{ poly =>
+                sqlu"insert into intel.farm_regions(farm_id,region,created_at) values($id,${poly.toString}::polygon,$now)".first
+              }
+              // 所属ポータルの再設定
+              sql"select distinct a.id from intel.portals as a, intel.farm_regions as b where b.farm_id=$id and point(a.late6/1e6,a.lnge6/1e6) <@ b.region".as[Int].list.foreach{ pid =>
+                Tables.FarmPortals.map{ p => (p.farmId, p.portalId) }.insert((id, pid))
+                logger.debug(s"ポータル $pid が所属しています")
+              }
+              // 代表地点の再計算
+              // http://www.pasco.co.jp/recommend/word/word054/
+              // TODO 点群の重心
+            }
+            logger.debug(s"領域を更新しました: $id")
+          case None =>
+            logger.warn(s"URLの内容が不正です: $url")
+        }
+      case None =>
+        logger.warn(s"該当するファームが存在しません: $id")
     }
   }
 
