@@ -125,6 +125,8 @@ create table intel.farm_regions(
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 
+create index farm_regions_idx01 on intel.farm_regions(farm_id);
+
 create table intel.farm_portals(
   id serial not null primary key,
   farm_id integer not null references intel.farms(id) on delete cascade,
@@ -155,8 +157,21 @@ create table intel.farm_activities(
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 
-create index farm_logs_idx00 on intel.farm_logs(farm_id);
-create index farm_logs_idx01 on intel.farm_logs(created_at);
+create index farm_activities_idx00 on intel.farm_activities(farm_id);
+create index farm_activities_idx01 on intel.farm_activities(created_at);
+
+create table intel.sentinel_tasks(
+  id serial not null primary key,
+  priority smallint not null,
+  tag varchar(64) not null,
+  script text not null,
+  wait_after bigint not null,
+  expired_at timestamp,
+  created_at timestamp not null default current_timestamp
+) with(oids=false);
+
+create index sentinel_tasks_idx00 on intel.sentinel_tasks(priority);
+create index sentinel_tasks_idx01 on intel.sentinel_tasks(tag);
 
 -- 以下未実装
 
