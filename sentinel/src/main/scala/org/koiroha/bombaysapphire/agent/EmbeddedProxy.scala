@@ -116,7 +116,7 @@ private class EmbeddedProxy(config:Config, stub:Stub) {
       .tls(crt.toString, key.toString)
       .build(ProxyService))
   }
-  logger.info(s"bombay-sapphire proxy listening on port http=${http.localAddress}/https=${https.localAddress}")
+  logger.info(s"bombay-sapphire proxy listening on port http=${http.localAddress}, https=${https.localAddress}")
 
   def httpsPort = https.localAddress.asInstanceOf[InetSocketAddress].getPort
 

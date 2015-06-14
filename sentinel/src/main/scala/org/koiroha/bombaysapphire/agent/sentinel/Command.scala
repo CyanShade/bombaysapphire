@@ -3,13 +3,16 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire
+package org.koiroha.bombaysapphire.agent.sentinel
+
+import org.koiroha.bombaysapphire.geom.LatLng
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ParseTask
+// Command
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
  * @author Takami Torao
  */
-case class ParseTask(method:String, id:Long, runAssumeAt:Long) extends Serializable
-case class Shutdown()
+sealed trait Command
+case class Sleep(tm:Long) extends Command
+case class Show(position:LatLng, detail:Boolean) extends Command

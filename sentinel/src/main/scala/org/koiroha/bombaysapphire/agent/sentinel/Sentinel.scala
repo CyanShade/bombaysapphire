@@ -5,19 +5,19 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{Closeable, FileInputStream, FileOutputStream}
+import java.io.{Closeable, File}
 import java.net.InetSocketAddress
 import java.text.DateFormat
-import java.util.Properties
 import javafx.application.{Application, Platform}
-import javafx.event.{Event, ActionEvent, EventHandler}
+import javafx.event.{ActionEvent, Event, EventHandler}
 import javafx.scene.Scene
 import javafx.scene.control._
 import javafx.scene.layout.BorderPane
-import javafx.scene.web.{WebView, WebEngine}
+import javafx.scene.web.WebEngine
 import javafx.stage.Stage
 import javax.net.ssl._
 
+import org.koiroha.bombaysapphire.agent.sentinel.ui.{DashboardTab, SessionTab}
 import org.koiroha.bombaysapphire.agent.{Config, ParasitizedSSLSocketFactory}
 import org.koiroha.bombaysapphire.geom.LatLng
 import org.koiroha.bombaysapphire.{Batch, BombaySapphire}
@@ -38,13 +38,12 @@ import scala.collection.mutable
 class Sentinel extends Application  {
 	import org.koiroha.bombaysapphire.agent.sentinel.Sentinel._
 
-	private[this] var configFile:Option[String] = None
-	private[this] var config:Option[Config] = None
+	private[this] var context:Option[Context] = None
 
 	private[this] var proxy:Option[EmbeddedProxy] = None
 	private[this] val tileKeys = new mutable.HashSet[String]()
 
-	private[this] var clients = Map[Int,Client]()
+	private[this] var clients = Map[Int,Session]()
 
 	// ==============================================================================================
 	// アプリケーションの初期化
@@ -54,30 +53,32 @@ class Sentinel extends Application  {
 	 */
 	override def init():Unit = {
 
-		// 設定ファイルの読み込み
-		val file = getParameters.getNamed.getOrDefault("config", "sentinel.properties")
-		val config = Config(org.koiroha.bombaysapphire.io.using(new FileInputStream(file)){ in =>
-			val prop = new Properties()
-			prop.load(in)
-			prop.map { case (k, v) => k.toString -> v.toString}.toMap
+		// 設定/作業ディレクトリを参照
+		val dir = new File(getParameters.getUnnamed.toList match {
+			case _dir :: rest => _dir
+			case Nil => s"${System.getProperty("user.home")}${File.separator}.sentinel"
 		})
-		this.configFile = Some(file)
-		this.config = Some(config)
+		logger.debug(s"initializing sentinel by application directory: $dir")
+
+		val context = new Context(dir)
+		this.context = Some(context)
+		context.save()
 
 		// プロキシサーバを起動
 		val proxy = new EmbeddedProxy {
 			private[this] var overLimitCount = 0
 			override def store(clientId: Option[Int], method: String, request: String, response: String): Unit = {
-				config.garuda.store(method, request, response, System.currentTimeMillis)
+				context.destinations.store(method, request, response)
 			}
 			override def retrieveTileKeys(tileKeys: Set[String]): Unit = Sentinel.this.tileKeys ++= tileKeys
 			override def onOverLimit(clientId: Option[Int]): Unit = {
 				overLimitCount += 1
-				if(overLimitCount >= config.overLimit){
-					logger.error(f"アクセス制限に達しました: $overLimitCount%,d/${config.overLimit}%,d; 哨戒行動を終了します.")
-					clientId.foreach{ id => clients.get(id).foreach{ _.close() } }
+				val limit = context.config.overLimitCountToStopScenario
+				if(overLimitCount >= limit){
+					logger.error(f"アクセス制限に達しました: $overLimitCount%,d/$limit%,d; 哨戒行動を終了します.")
+					clientId.foreach{ id => clients.get(id).foreach{ _.signOut() } }
 				} else {
-					logger.warn(f"アクセス制限を検知しました: $overLimitCount%,d/${config.overLimit}%,d")
+					logger.warn(f"アクセス制限を検知しました: $overLimitCount%,d/$limit%,d")
 				}
 			}
 		}
@@ -96,7 +97,6 @@ class Sentinel extends Application  {
 	 * WebView を配置してウィンドウを生成。
 	 */
 	override def start(primaryStage:Stage):Unit = {
-		val config = this.config.get
 
 		// メニューバー
 		val menuBar = new MenuBar()
@@ -108,27 +108,16 @@ class Sentinel extends Application  {
 			menuBar.getMenus.addAll(file)
 		}
 
-		// ログ出力
-		val log = new TextArea()
-		locally {
-			log.setEditable(false)
-			log.appendText("hello, world\n")
-			log.appendText("this is console message.\n")
-		}
-
 		// クライアント領域
 		val clients = new TabPane()
 		locally {
-			val web = new WebView()
-			web.setZoom(config.scale)
-			web.setMinSize(config.viewSize._1, config.viewSize._2)
-			web.setPrefSize(config.viewSize._1, config.viewSize._2)
-			web.setMaxSize(config.viewSize._1, config.viewSize._2)
-			web.getEngine.load(s"http://${BombaySapphire.RemoteHost}/intel?z=7")
-			val pane = new BorderPane()
-			pane.setCenter(web)
-			val tab = new Tab()
-			tab.setContent(pane)
+
+			// ダッシュボードタブ
+			val dashboard = new DashboardTab()
+			clients.getTabs.add(dashboard)
+
+			val tab = new SessionTab(context.get)
+			tab.browser.getEngine.load(s"http://${BombaySapphire.RemoteHost}/intel?z=7")
 			clients.getTabs.add(tab)
 		}
 
@@ -136,11 +125,10 @@ class Sentinel extends Application  {
 		val root = new BorderPane()
 		root.setTop(menuBar)
 		root.setCenter(clients)
-		root.setBottom(log)
 
 		// ウィンドウの生成と表示
-		primaryStage.setTitle("Bombay Sapphire")
-		val scene = new Scene(root, config.viewSize._1, config.viewSize._2)
+		primaryStage.setTitle("Sentinel")
+		val scene = new Scene(root)
 		primaryStage.setScene(scene)
 		primaryStage.show()
 	}
@@ -254,19 +242,6 @@ class Sentinel extends Application  {
 				s"${span(tm)} (残り ${span(remains)}; ${df.format(assumedEnd)} 終了予定)"
 			}
 		}
-	}
-
-	// ==============================================================================================
-	// アプリケーション設定の保存
-	// ==============================================================================================
-	/**
-	 * アプリケーションの設定を保存します。
-	 */
-	private[this] def save(file:String = configFile.get):Unit = {
-		org.koiroha.bombaysapphire.io.using(new FileOutputStream(file)){ out =>
-			this.config.get.config.foldLeft(new Properties()){ case (p, (key, value)) => p.setProperty(key, value); p }.store(out, "")
-		}
-		this.configFile = Some(file)
 	}
 }
 
