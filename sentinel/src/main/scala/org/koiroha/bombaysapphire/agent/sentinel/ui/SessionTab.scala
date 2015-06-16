@@ -5,13 +5,14 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel.ui
 
+import javafx.event.{ActionEvent, EventHandler}
 import javafx.geometry.{Insets, Orientation}
 import javafx.scene.control._
 import javafx.scene.layout.{HBox, VBox}
 import javafx.scene.text.Font
 import javafx.scene.web.WebView
 
-import org.koiroha.bombaysapphire.agent.sentinel.Context
+import org.koiroha.bombaysapphire.agent.sentinel.{Account, Context}
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // SessionTab
@@ -24,7 +25,7 @@ class SessionTab(context:Context) extends Tab {
 	val browser = new WebView()
 	val status = new Label()
 
-	val account = new ChoiceBox[String]()
+	val account = new ChoiceBox[Account]()
 	val addAccount = new Button()
 
 	val patrol = new ChoiceBox[String]()
@@ -39,6 +40,7 @@ class SessionTab(context:Context) extends Tab {
 		status.setText("ステータス")
 		status.setPadding(new Insets(4, 6, 4, 6))
 
+		account.setItems(context.accounts)
 		addAccount.setText("追加")
 
 		patrol.getItems.addAll("マニュアル", "定点", "巡回")
@@ -69,5 +71,18 @@ class SessionTab(context:Context) extends Tab {
 		browser.setMinSize(config.viewSize._1, config.viewSize._2)
 		browser.setPrefSize(config.viewSize._1, config.viewSize._2)
 		browser.setMaxSize(config.viewSize._1, config.viewSize._2)
+
+		addAccount.onActionProperty().setValue(new EventHandler[ActionEvent] {
+			override def handle(event: ActionEvent): Unit = {
+				val dialog = new AccountDialog()
+				val result = dialog.showAndWait()
+				if(result.isPresent){
+					val username = result.get()._1
+					val password = result.get()._2
+					context.accounts.create(username, password)
+					context.save()
+				}
+			}
+		})
 	}
 }

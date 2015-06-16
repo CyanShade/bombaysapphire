@@ -20,15 +20,15 @@ import scala.annotation.tailrec
  */
 class Account(elem:Element){
 
-	def username:String = (elem \ "username").text.trim
-	def username_=(value:String) = (elem \ "username").text = value
+	def username:String = elem.attr("username").trim
+	def username_=(value:String) = elem.attr("username", value)
 
-	def password:String = (elem \ "password").text.trim
-	def password_=(value:String) = (elem \ "password").text = value
+	def password:String = elem.attr("password").trim
+	def password_=(value:String) = elem.attr("password", value)
 
 	def drop():Unit = elem.getParentNode.removeChild(elem)
 
-	private[this] val _used = new AtomicReference((elem \ "request-timestamp").text.trim.split("\\s*,\\s*").map{ _.toLong }.toList)
+	private[this] val _used = new AtomicReference(elem.attr("used-at").split("\\s*,\\s*").map{ _.trim() }.filterNot{ _.isEmpty }.map{ _.toLong }.toList)
 
 	// ==============================================================================================
 	/**
@@ -85,6 +85,8 @@ class Account(elem:Element){
 		}
 		rec()
 	}
+
+	override def toString = username
 }
 
 object Account {
@@ -94,12 +96,10 @@ object Account {
 	val UsedLimitTerm = 1 * 24 * 60 * 60 * 1000L
 
 	def create(doc:Document, username:String, password:String) = {
-		val un = doc.createElement("username")
-		un.text = username
-		val ps = doc.createElement("password")
-		ps.text = password
-		val root = doc.createElement("account")
-		root << un << ps
+		val account = doc.createElement("account")
+		account.attr("username", username)
+		account.attr("password", password)
+		account
 	}
 
 }

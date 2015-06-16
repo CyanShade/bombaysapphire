@@ -8,6 +8,7 @@ package org.koiroha.bombaysapphire.agent.sentinel
 import java.io.{ByteArrayInputStream, File}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import javafx.collections.ObservableListBase
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.transform.TransformerFactory
 import javax.xml.transform.dom.DOMSource
@@ -26,7 +27,7 @@ import org.xml.sax.InputSource
  * @author Takami Torao
  */
 class Context(val dir:File) {
-	import Context._
+	import org.koiroha.bombaysapphire.agent.sentinel.Context._
 
 	/** 設定ファイル */
 	private[this] val file = new File(dir, "context.xml")
@@ -116,7 +117,7 @@ class Context(val dir:File) {
 	/**
 	 * Sentinel が使用可能なアカウント。
 	 */
-	object accounts{
+	object accounts extends ObservableListBase[Account]{
 		private[this] val root = context.getDocumentElement \+ "accounts"
 		/** アカウント一覧 */
 		def list = (root \* "account").map{ e => new Account(e) }
@@ -124,8 +125,13 @@ class Context(val dir:File) {
 		def create(username:String, password:String):Account = {
 			val elem = Account.create(root.getOwnerDocument, username, password)
 			root << elem
+			this.beginChange()
+			nextAdd(list.size-1, list.size)
+			this.endChange()
 			new Account(elem)
 		}
+		override def get(index:Int):Account = list(index)
+		override def size():Int = list.size
 	}
 
 	// ==============================================================================================
