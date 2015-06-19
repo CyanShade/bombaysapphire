@@ -74,12 +74,14 @@ class SessionTab(context:Context) extends Tab {
 
 		addAccount.onActionProperty().setValue(new EventHandler[ActionEvent] {
 			override def handle(event: ActionEvent): Unit = {
-				val dialog = new AccountDialog()
+				val dialog = new AccountDialog(context)
 				val result = dialog.showAndWait()
 				if(result.isPresent){
+					/*
 					val username = result.get()._1
 					val password = result.get()._2
 					context.accounts.create(username, password)
+					*/
 					context.save()
 				}
 			}
