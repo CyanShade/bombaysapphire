@@ -5,24 +5,21 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{Closeable, File}
+import java.io.File
 import java.net.InetSocketAddress
-import java.text.DateFormat
-import javafx.application.{Application, Platform}
+import javafx.application.Application
 import javafx.event.{ActionEvent, Event, EventHandler}
 import javafx.scene.Scene
 import javafx.scene.control._
 import javafx.scene.layout.BorderPane
-import javafx.scene.web.WebEngine
 import javafx.stage.Stage
 import javax.net.ssl._
 
+import org.koiroha.bombaysapphire.BombaySapphire
+import org.koiroha.bombaysapphire.agent.ParasitizedSSLSocketFactory
 import org.koiroha.bombaysapphire.agent.sentinel.ui.{DashboardTab, SessionTab}
-import org.koiroha.bombaysapphire.agent.{Config, ParasitizedSSLSocketFactory}
-import org.koiroha.bombaysapphire.geom.LatLng
-import org.koiroha.bombaysapphire.{Batch, BombaySapphire}
 import org.slf4j.LoggerFactory
-import org.w3c.dom.{Element, Node, NodeList}
+import org.w3c.dom.{Node, NodeList}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -44,6 +41,8 @@ class Sentinel extends Application  {
 	private[this] val tileKeys = new mutable.HashSet[String]()
 
 	private[this] var clients = Map[Int,Session]()
+
+	private[this] val sessions = new TabPane()
 
 	// ==============================================================================================
 	// アプリケーションの初期化
@@ -76,7 +75,7 @@ class Sentinel extends Application  {
 				val limit = context.config.overLimitCountToStopScenario
 				if(overLimitCount >= limit){
 					logger.error(f"アクセス制限に達しました: $overLimitCount%,d/$limit%,d; 哨戒行動を終了します.")
-					clientId.foreach{ id => clients.get(id).foreach{ _.signOut() } }
+					clientId.foreach{ id => clients.get(id).foreach{ _.stop() } }
 				} else {
 					logger.warn(f"アクセス制限を検知しました: $overLimitCount%,d/$limit%,d")
 				}
@@ -105,26 +104,29 @@ class Sentinel extends Application  {
 			val quit = new MenuItem("Quit")
 			quit.setOnAction({ e:ActionEvent => this.quit(primaryStage) })
 			file.getItems.addAll(quit)
-			menuBar.getMenus.addAll(file)
+
+			val session = new Menu("Session")
+			val create = new MenuItem("Create")
+			create.setOnAction({ e:ActionEvent => this.newSession() })
+			session.getItems.addAll(create)
+
+			menuBar.getMenus.addAll(file, session)
 		}
 
 		// クライアント領域
-		val clients = new TabPane()
 		locally {
 
 			// ダッシュボードタブ
 			val dashboard = new DashboardTab()
-			clients.getTabs.add(dashboard)
+			sessions.getTabs.add(dashboard)
 
-			val tab = new SessionTab(context.get)
-			tab.browser.getEngine.load(s"http://${BombaySapphire.RemoteHost}/intel?z=7")
-			clients.getTabs.add(tab)
+			context.get.sessions.list.foreach{ openSession }
 		}
 
 		// 配置
 		val root = new BorderPane()
 		root.setTop(menuBar)
-		root.setCenter(clients)
+		root.setCenter(sessions)
 
 		// ウィンドウの生成と表示
 		primaryStage.setTitle("Sentinel")
@@ -142,6 +144,17 @@ class Sentinel extends Application  {
 		stage.close()
 	}
 
+	private[this] def newSession():Unit = {
+		openSession(context.get.sessions.create())
+		context.get.save()
+	}
+
+	private[this] def openSession(s:Scenario):Unit = {
+		val tab = new SessionTab(context.get, s)
+		tab.browser.getEngine.load(s"http://${BombaySapphire.RemoteHost}/events")
+		sessions.getTabs.add(tab)
+	}
+
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	// シナリオ
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -149,6 +162,7 @@ class Sentinel extends Application  {
 	 * サインインが完了すると地点表示ループに入り北西側の緯度経度から南東側の緯度経度に向かって特定の距離ごとに表示
 	 * して行く。
 	 */
+	/*
 	private[this] class Scenario(conf:Config, engine:WebEngine, browser:Closeable) {
 		/** 開始時間 */
 		private[this] val start = System.currentTimeMillis()
@@ -243,6 +257,7 @@ class Sentinel extends Application  {
 			}
 		}
 	}
+	*/
 }
 
 object Sentinel {

@@ -80,6 +80,13 @@ class Context(val dir:File) {
 				logger.warn(s"not a number: $name = ${get(name)}")
 				default
 		}
+		private[this] def get(name:String, default:Double):Double = try {
+			get(name, default.toString).toDouble
+		} catch {
+			case ex:NumberFormatException =>
+				logger.warn(s"not a number: $name = ${get(name)}")
+				default
+		}
 		private[this] def set(name:String, value:String):Unit = param(name) match {
 			case Some(elem) => elem.attr(name, value)
 			case None =>
@@ -89,12 +96,16 @@ class Context(val dir:File) {
 				root.appendChild(elem)
 		}
 		private[this] def set(name:String, value:Int):Unit = set(name, value.toString)
+		private[this] def set(name:String, value:Double):Unit = set(name, value.toString)
 		/** リクエストに使用する User-Agent 名。 */
 		def userAgent = get("user-agent")
 		def userAgent_=(ua:String) = set("user-agent", ua)
 		/** シナリオを中止する OverLimit 発生回数。 */
 		def overLimitCountToStopScenario:Int = get("over-limit", 10)
 		def overLimitCountToStopScenario_=(count:Int) = set("over-limit", count)
+		/** 領域巡回時の移動距離 [km] */
+		def distanceKM:Double = get("distance", 1.0)
+		def distanceKM_=(d:Double) = set("distance", d)
 
 		/** Sentinel で表示する Intel Map の論理スクリーンサイズ */
 		val logicalScreenSize = (5120, 2880)
@@ -116,6 +127,7 @@ class Context(val dir:File) {
 	// ==============================================================================================
 	/**
 	 * Sentinel が使用可能なアカウント。
+	 * 読み込み専用の ObservableList[Account] として使用可能。
 	 */
 	object accounts extends ObservableListBase[Account]{
 		private[this] val root = context.getDocumentElement \+ "accounts"
@@ -153,6 +165,23 @@ class Context(val dir:File) {
 		def store(method:String, request:String, response:String):Unit = {
 			val now = System.currentTimeMillis()
 			list.filter{ _.enabled }.foreach{ _.store(method, request, response, now) }
+		}
+	}
+
+	// ==============================================================================================
+	// セッション
+	// ==============================================================================================
+	/**
+	 * 実行可能なセッション。
+	 */
+	object sessions {
+		private[this] val root = context.getDocumentElement \+ "sessions"
+		/** セッション一覧 */
+		def list = (root \* "session").map { elem => new Scenario(elem) }
+		def create():Scenario = {
+			val elem = Scenario.create(root.getOwnerDocument)
+			root << elem
+			new Scenario(elem)
 		}
 	}
 

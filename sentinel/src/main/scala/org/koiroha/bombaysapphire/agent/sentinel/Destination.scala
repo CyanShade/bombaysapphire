@@ -7,6 +7,7 @@ package org.koiroha.bombaysapphire.agent.sentinel
 
 import java.io.{File, FileOutputStream, IOException}
 import java.net._
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 
@@ -61,7 +62,6 @@ object Destination {
  * @author Takami Torao
  */
 class GarudaAPI(elem:Element) extends Destination(elem) {
-	assert(elem.getTagName == GarudaAPI.Scheme)
 	private[this] val logger = LoggerFactory.getLogger(getClass)
 	val TimeHeader = "X-Milliseconds-Before"
 	implicit val _ex = Destination._executionContext
@@ -74,14 +74,20 @@ class GarudaAPI(elem:Element) extends Destination(elem) {
 		try {
 			val url = new URL(s"$urlPrefix/logs/$method")
 			val con = url.openConnection().asInstanceOf[HttpURLConnection]
+			val b = (request.getBytes(StandardCharsets.UTF_8), response.getBytes(StandardCharsets.UTF_8))
+			val buffer = ByteBuffer.allocate(4 + b._1.length + 4 + b._2.length)
+			buffer.putInt(b._1.length)
+			buffer.put(b._1)
+			buffer.putInt(b._2.length)
+			buffer.put(b._2)
 			con.setDoOutput(true)
 			con.setDoInput(true)
 			con.setRequestProperty("Content-Type", "application/octet-stream")
+			con.setRequestProperty("Content-Length", buffer.limit().toString)
 			con.setRequestProperty(TimeHeader, (System.currentTimeMillis() - tm).toString)
 			con.setRequestMethod("POST")
 			val out = con.getOutputStream
-			out.write(request.getBytes(StandardCharsets.UTF_8))
-			out.write(response.getBytes(StandardCharsets.UTF_8))
+			out.write(buffer.array())
 			out.flush()
 			con.getResponseCode match {
 				case code if code == 200 => None
@@ -121,7 +127,6 @@ object GarudaAPI {
  * @author Takami Torao
  */
 class LocalFile(elem:Element) extends Destination(elem) {
-	assert(elem.getTagName == LocalFile.Scheme)
 	def filename:String = new File(uri).getAbsolutePath
 	def filename_=(value:String) = uri = new File(value).toURI
 

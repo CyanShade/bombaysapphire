@@ -126,7 +126,7 @@ class Garuda(context:Context) extends GarudaAPI {
 				entities.save(tm)
 				entities
 			}
-			case "getPortalDetails" => PortalDetails(resJson).map { pd =>
+			case "getPortalDetails" => PortalDetails(resJson \ "result").map { pd =>
 				savePortalDetail(tm, pd, request)
 				pd
 			}
@@ -150,16 +150,21 @@ class Garuda(context:Context) extends GarudaAPI {
 	private[this] def savePortalDetail(tm:Timestamp, pd:PortalDetails, req:String)(implicit session:Session):Unit = {
 		// レスポンスの PortalDetails には guid が含まれないためリクエスト中から guid を取得する
 		// {"guid":"8cf1eb0d834f4f64898d9e683849d44e.16","v":"...","b":"...","c":"..."}
-		(getContentAsJSON(req) \ "guid").extractOpt[String] match {
-			case Some(guid) =>
-				Tables.Portals.filter{ _.guid === guid }.map{ _.id }.firstOption match {
-					case Some(id) =>
-						sqlu"insert into intel.portal_state_logs(portal_id,owner,level,health,team,mitigation,resCount,resonators,mods) values($id,${pd.owner},${pd.level},${pd.health},${pd.team.symbol.toString},${0}},${pd.resCount},${pd.resonatorsJSON}::jonb,${pd.modsJSON}::jsonb)".first.run
+		parseOpt(req) match {
+			case Some(j) =>
+				(j \ "guid").extractOpt[String] match {
+					case Some(guid) =>
+						Tables.Portals.filter {_.guid === guid}.map {_.id}.firstOption match {
+							case Some(id) =>
+								sqlu"insert into intel.portal_state_logs(portal_id,owner,level,health,team,mitigation,res_count,resonators,mods,artifact) values($id,${pd.owner},${pd.level},${pd.health},${pd.team.symbol.toString},${0},${pd.resCount},${pd.resonatorsJSON}::jsonb,${pd.modsJSON}::jsonb,${pd.artifactJSON}::jsonb)".first.run
+							case None =>
+								logger.debug(s"portal not exist for detail: $guid")
+						}
 					case None =>
-						logger.debug(s"portal not exist for detail: $guid")
+						logger.warn(s"portal guid not exist in request: $req")
 				}
 			case None =>
-				logger.warn(s"portal guid not exist in request: $req")
+				logger.warn(s"request format is not json: $req")
 		}
 	}
 

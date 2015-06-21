@@ -23,6 +23,7 @@ object WayPoints {
    * @param latKm 緯度 [km]
    * @param lngKm 経度 [km]
    */
+  /*
   def byOffset(region:Region, latKm:Double, lngKm:Double):WayPoints = {
     // 緯度方向の移動距離
     val latOffset:Latitude = BombaySapphire.latUnit * latKm
@@ -45,5 +46,6 @@ object WayPoints {
     }
     WayPoints(waypoints)
   }
+  */
 
 }

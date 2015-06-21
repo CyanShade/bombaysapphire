@@ -8,7 +8,7 @@ package org.koiroha.bombaysapphire
 import java.io.{InputStream, FileInputStream, File}
 import java.util.zip.ZipFile
 
-import org.koiroha.bombaysapphire.geom.{Polygon, LatLng, AdministrativeDistrict}
+import org.koiroha.bombaysapphire.geom.{Region, Polygon, LatLng, AdministrativeDistrict}
 import org.slf4j.LoggerFactory
 import org.xml.sax.InputSource
 
@@ -54,15 +54,8 @@ object KML {
 		val FigureNameCSC = """([A-Z]{2})/([^/]*)/([^\.]*)""".r
 		val FigureNameCS = """([A-Z]{2})/([^\.]*)""".r
 		val FigureNameC = """([A-Z]{2})""".r
-
-		val is = new InputSource(systemId)
-		is.setByteStream(in)
-
-		val doc = XML.load(is)
-		(doc \\ "Placemark").map { placemark =>
-
-			// 行政区域の名称を参照
-			val (country, state, city) = (placemark \ "name").text.trim() match {
+		toRegion(systemId, in).map{ r =>
+			val (country, state, city) = r.name match {
 				case FigureNameCSC(c, s, ct) => (c, Some(s), Some(ct))
 				case FigureNameCS(c, s) => (c, Some(s), None)
 				case FigureNameC(c) => (c, None, None)
@@ -71,12 +64,44 @@ object KML {
 					logger.error(s"country{/state{/city}}} となるように修正してください.")
 					throw new IllegalArgumentException()
 			}
-			val regionName = (state, city) match {
-				case (Some(s), Some(c)) => s"$c, $s $country"
-				case (Some(s), None) => s"$s $country"
-				case (None, None) => country
-				case _ => throw new IllegalStateException("bug!")
+			AdministrativeDistrict(country, state.getOrElse(""), city.getOrElse(""), r.shapes)
+		}
+	}
+
+	/** KML または KMZ 形式のファイルから領域の読み込み */
+	def toRegion(file:File):Seq[Region] = {
+		if(file.getName.endsWith(".kml")) {
+			io.using(new FileInputStream(file)){ in => toRegion(file.toString, in) }
+		} else if(file.getName.endsWith(".kmz")) {
+			io.using(new ZipFile(file)){ zfile =>
+				zfile.entries().collectFirst {
+					case e if e.getName == "doc.kml" =>
+						toRegion(file.toString + "#doc.kml", zfile.getInputStream(e))
+				} match {
+					case Some(e) => e
+					case None =>
+						logger.error(s"KMZファイルフォーマットが不正です: ${file.getName}")
+						throw new IllegalArgumentException(file.getName)
+				}
 			}
+		} else {
+			logger.error(s"未対応のファイル拡張子です: ${file.getName}")
+			throw new IllegalArgumentException(file.getName)
+		}
+	}
+
+	/** KML 形式のストリームから領域の読み込み */
+	def toRegion(in:InputStream):Seq[Region] = toRegion("", in)
+
+	/** KML 形式のストリームから領域の読み込み */
+	private[this] def toRegion(systemId:String, in:InputStream):Seq[Region] = {
+
+		val is = new InputSource(systemId)
+		is.setByteStream(in)
+
+		val doc = XML.load(is)
+		(doc \\ "Placemark").map { placemark =>
+			val name = (placemark \ "name").text.trim()
 
 			// KML から多角形の座標を取得
 			val polygons = (placemark \ "Polygon").map { polygon =>
@@ -90,7 +115,7 @@ object KML {
 				}.map { case (lat, lng) => LatLng(lat, lng) }.toSeq
 			}.map{ p => Polygon(p) }
 
-			AdministrativeDistrict(country, state.getOrElse(""), city.getOrElse(""), polygons)
+			Region(name, polygons)
 		}
 	}
 }

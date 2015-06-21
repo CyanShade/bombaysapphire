@@ -82,6 +82,7 @@ create table intel.portal_state_logs(
   res_count smallint not null,
   resonators jsonb,
   mods jsonb,
+  artifact jsonb,
   created_at timestamp not null default current_timestamp
 ) with(oids=false);
 

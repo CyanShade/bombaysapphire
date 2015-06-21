@@ -8,7 +8,7 @@ package org.koiroha.bombaysapphire.garuda
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.koiroha.bombaysapphire.garuda.Entities.MapRegion
-import org.koiroha.bombaysapphire.garuda.PortalDetails.{Mod, Resonator}
+import org.koiroha.bombaysapphire.garuda.PortalDetails.{Artifact, Mod, Resonator}
 import org.koiroha.bombaysapphire.garuda.RegionScoreDetails.{ScoreHistory, TopAgent}
 import org.slf4j.LoggerFactory
 
@@ -257,7 +257,7 @@ object Plext {
 --- getPortalDetails ---
 {"latE6":3.5697816E7,"health":99.0,"resonators":[{"owner":"materia64","energy":6000.0,"level":8.0},{"owner":"takayuki8695","energy":5993.0,"level":8.0},{"owner":"Ziraiya","energy":5996.0,"level":8.0},{"owner":"banban21","energy":6000.0,"level":8.0},{"owner":"kosuke01","energy":5991.0,"level":8.0},{"owner":"xanadu2000","energy":5986.0,"level":8.0},{"owner":"st39pq28","energy":5951.0,"level":8.0},{"owner":"colsosun","energy":5984.0,"level":8.0}],"image":"http://lh5.ggpht.com/s_rUFvp3UQoEHzPOLHgvkBZqU0ANBOTCwhbYhZHuxdy4xwoENZoFCGN2Cd8WRHMFcARF_K95hs2gUhZnkeg","mods":[{"owner":"xanadu2000","stats":{"REMOVAL_STICKINESS":"70","MITIGATION":"70"},"name":"AXA Shield","rarity":"VERY_RARE"},{"owner":"Ziraiya","stats":{"REMOVAL_STICKINESS":"20","MITIGATION":"30"},"name":"Portal Shield","rarity":"COMMON"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"},{"owner":"HedgehogPonta","stats":{"REMOVAL_STICKINESS":"30","MITIGATION":"40"},"name":"Portal Shield","rarity":"RARE"}],"resCount":8.0,"lngE6":1.39812408E8,"team":"RESISTANCE","owner":"Ziraiya","title":"美容ポコ","type":"portal","ornaments":[],"level":8.0}
 */
-case class PortalDetails(health:Int, image:String, latE6:Int, level:Int, lngE6:Int, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String){
+case class PortalDetails(health:Double, image:String, latE6:Int, level:Int, lngE6:Int, mods:Seq[Option[Mod]], ornaments:Seq[String], owner:String, resCount:Int, resonators:Seq[Resonator], team:Team, title:String, `type`:String, artifact:Option[Artifact]){
 		import org.json4s.JsonDSL._
 		def resonatorsJSON:String = {
 			compact(render(resonators.map{ r => ("energy" -> r.energy) ~ ("level" -> r.level) ~ ("owner", r.owner) }.toList))
@@ -269,6 +269,12 @@ case class PortalDetails(health:Int, image:String, latE6:Int, level:Int, lngE6:I
 					("stats"->JObject.apply(m.stats.map{ kv => kv._1 -> JString(kv._2) }.toList))
 				case None => JNull
 			}.toList))
+		}
+		def artifactJSON:String = {
+			compact(render(artifact match {
+				case Some(a) => ("id"->a.id) ~ ("name"->a.name) ~ ("nums"->a.nums.mkString(","))
+				case None => JNull
+			}))
 		}
 	}
 object PortalDetails {
@@ -286,7 +292,49 @@ object PortalDetails {
 	 */
 	case class Mod(name:String, owner:String, rarity:String, stats:Map[String,String])
 	case class Resonator(energy:Int, level:Int, owner:String)
+	case class Artifact(id:String, name:String, nums:Seq[Int])
 	def apply(value:JValue):Option[PortalDetails] = value transformOpt {
+		/*
+		["p","E",35697816,139812408,3,93.0,6,"http://lh5.ggpht.com/s_rUFvp3UQoEHzPOLHgvkBZqU0ANBOTCwhbYhZHuxdy4xwoENZoFCGN2Cd8WRHMFcARF_K95hs2gUhZnkeg","\u72ac\u3068\u732b\u306e\u5c02\u9580\u5e97 \u30da\u30c3\u30c8\u30b5\u30ed\u30f3 \u30dd\u30b3",[],true,true,null,1434905702382,[null,null,null,null],[["basico",7,4719],["basico",8,5700],["basico",4,2370],["basico",3,1830],["karaagechan",7,4836],["basico",1,710]],"karaagechan",["","",[]]]
+		["p","E",34017873,-118502975,7,100.0,8,"http://lh3.googleusercontent.com/bD6ob0ChcOfW4eIhsAwMaIvSQ6XiwSWh-DhCJ8BbmItgQyJ9WCugY0_l9HIUItHMXKNkuyhjxrWaYbov3w3e8g","Beacon, The Big Project",[],true,true,[[["lightman"]],[["lightman"]]],1434914161331,[["Krptx","Portal Shield","VERY_RARE",{"REMOVAL_STICKINESS":"450000","MITIGATION":"60"}],["Krptx","Portal Shield","RARE",{"REMOVAL_STICKINESS":"150000","MITIGATION":"40"}],["nowires","Heat Sink","COMMON",{"REMOVAL_STICKINESS":"0","HACK_SPEED":"200000"}],["NickeLove2","Portal Shield","COMMON",{"REMOVAL_STICKINESS":"0","MITIGATION":"30"}]],[["NickeLove2",8,6000],["NickeLove2",7,5000],["Krptx",7,5000],["Krptx",8,6000],["choosing",7,5000],["choosing",8,6000],["BarBeelicious",8,6000],["TheEternalOne",8,6000]],"Krptx",["lightman","Lightman",[2,10,14,31,32,33,34,36,41]]]
+		 */
+		val `type` = value(0).extractOpt[String].get
+		val team = value(1).extractOpt[String].flatMap{ Team.apply }.get
+		val latE6 = value(2).toInt
+		val lngE6 = value(3).toInt
+		val level = value(4).toInt
+		val health = value(5).toDouble
+		val resCount = value(6).toInt
+		val image = value(7).extractOpt[String].get
+		val title = value(8).extractOpt[String].get
+		value(9).toList
+		value(10).toBoolean
+		value(11).toBoolean
+		val ornaments = value(12).toList.flatMap{ _.extractOpt[String] }
+		value(13).toLong
+		val mods = value(14).toList.map{ e =>
+			if(e == JNull) None else e.transformOpt {
+				val owner = e(0).extractOpt[String].get
+				val name = e(1).extractOpt[String].get
+				val rarity = e(2).extractOpt[String].get
+				val stats = e(3).toMap.map{ case (k,v) => k -> v.extract[String] }.toMap
+				Some(Mod(name, owner, rarity, stats))
+			}
+		}
+		val resonators = value(15).toList.map{ r =>
+			val owner = r(0).extractOpt[String].get
+			val level = r(1).toInt
+			val energy = r(2).toInt
+			Resonator(energy, level, owner)
+		}
+		val owner = value(16).extractOpt[String].get
+		val artifact = {
+			val id = value(17).apply(0).extract[String]
+			val name = value(17).apply(1).extract[String]
+			val nums = value(17).apply(2).toList.map{ _.toInt }
+			if(id.isEmpty) None else Some(Artifact(id, name, nums))
+		}
+		/*
 		val health = (value \ "health").toInt
 		val image = (value \ "image").extractOpt[String].get
 		val latE6 = (value \ "latE6").toInt
@@ -313,7 +361,8 @@ object PortalDetails {
 		val team = (value \ "team").extractOpt[String].flatMap{ Team.apply }.get
 		val title = (value \ "title").extractOpt[String].get
 		val `type` = (value \ "type").extractOpt[String].get
-		Some(PortalDetails(health, image, latE6, level, lngE6, mods, ornaments, owner, resCount, resonators, team, title, `type`))
+		*/
+		Some(PortalDetails(health, image, latE6, level, lngE6, mods, ornaments, owner, resCount, resonators, team, title, `type`, artifact))
 	}
 }
 
@@ -355,6 +404,18 @@ object Implicit {
 			case i:JDouble => i.num.toLong
 			case i:JDecimal => i.num.toLong
 			case i:JString => i.s.toLong
+			case unknown => throw new NumberFormatException(unknown.toString)
+		}
+		def toDouble:Double = value match {
+			case i:JInt => i.num.toDouble
+			case i:JDouble => i.num.toDouble
+			case i:JDecimal => i.num.toDouble
+			case i:JString => i.s.toDouble
+			case unknown => throw new NumberFormatException(unknown.toString)
+		}
+		def toBoolean:Boolean = value match {
+			case i:JBool => i.value
+			case i:JString => i.s.toBoolean
 			case unknown => throw new NumberFormatException(unknown.toString)
 		}
 		def toList:List[JValue] = value match {
