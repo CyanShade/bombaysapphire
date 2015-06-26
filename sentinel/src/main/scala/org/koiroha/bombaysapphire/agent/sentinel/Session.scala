@@ -5,11 +5,12 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
+import java.io.File
 import java.util
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.{Timer, TimerTask}
-import javafx.application.Platform
+import javafx.scene.transform.Scale
 import javafx.scene.web.{WebEngine, WebView}
 
 import org.koiroha.bombaysapphire.BombaySapphire
@@ -28,7 +29,13 @@ import scala.util.{Failure, Success}
  *
  * @author Takami Torao
  */
-class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, userAgent:String)(implicit _context:ExecutionContext){
+class Session(context:Context, scenario:Scenario, browser:WebView)(implicit _context:ExecutionContext){
+
+	/**
+	 * このセッションを JavaVM ヒープ上で識別するための ID。
+	 */
+	val id = context.newSessionId
+
 	private[this] val logger = LoggerFactory.getLogger(getClass.getName + ":" + id)
 
 	private[this] val engine = browser.getEngine
@@ -38,7 +45,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 	private[this] var waiting:Option[TimerTask] = None
 	private[this] val promise = Promise[Session]()
 
-	private[this] val DefaultZoomLevel = browser.getZoom
+	private[this] val DefaultZoomLevel = 0.6
 
 	/**
 	 * 画面遷移の結果を受け取る Promise のキュー。
@@ -50,6 +57,12 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 		override def success(engine:WebEngine):Unit = Option(queue.poll()).foreach{ _.success(engine.getLocation) }
 		override def failure(engine:WebEngine):Unit = Option(queue.poll()).foreach{ _.failure(new IllegalStateException(engine.getLocation)) }
 	})
+
+	locally {
+		val temp = new File(context.temp, s"session-$id")
+		temp.mkdirs()
+		engine.setUserDataDirectory(temp)
+	}
 
 	/**
 	 * このセッションの実行で表示する位置またはキーワード。
@@ -65,6 +78,17 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 	/**
 	 */
 	private[this] val playScript:util.Queue[()=>Future[String]] = {
+		def zoom(d:Double):Unit = {
+			browser.setZoom(1)
+			browser.getTransforms.clear()
+			browser.getTransforms.add(new Scale(d, d))
+			browser.setPrefWidth(context.config.physicalScreenWidth / d)
+			browser.setMinWidth(context.config.physicalScreenWidth / d)
+			browser.setMaxWidth(context.config.physicalScreenWidth / d)
+			browser.setPrefHeight(context.config.physicalScreenHeight / d)
+			browser.setMinHeight(context.config.physicalScreenHeight / d)
+			browser.setMaxHeight(context.config.physicalScreenHeight / d)
+		}
 		def _point(lat:Double, lng:Double):()=>Future[String] = {
 			{ () =>
 				browser.setZoom(context.config.screenScale)
@@ -75,7 +99,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 		}
 		def _portal(lat:Double, lng:Double):()=>Future[String] = {
 			{ () =>
-				browser.setZoom(DefaultZoomLevel)
+				zoom(DefaultZoomLevel)
 				val url = s"https://${BombaySapphire.RemoteHost}/intel?pll=$lat,$lng&z=7"
 				logger.info(s"表示: $url")
 				show(url)
@@ -83,7 +107,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 		}
 		def _keyword(kwd:String):()=>Future[String] = {
 			{ () =>
-				browser.setZoom(context.config.screenScale)
+				zoom(context.config.screenScale)
 				logger.info(s"キーワード: $kwd")
 				val script = s"""document.getElementById('address').value='${kwd.replaceAll("\n", "\\n").replaceAll("'", "\\'")}';
 					|document.getElementById('geocode').submit();
@@ -131,7 +155,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 
 	private[this] def step():Unit = if(! stopped.get()){
 		val f = playScript.remove()
-		edt{
+		ui.fx{
 			f.apply().onComplete {
 				case Success(_) =>
 					if (playScript.size() > 0) {
@@ -159,10 +183,10 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 
 		// ※User-Agent の末尾にIDを付けることで EmbeddedProxy がどのクライアントからのリクエストかを検知する
 		//  このIDはIntelへのリクエスト時には削除される
-		engine.setUserAgent(s"$userAgent #$id:${account.username}")
+		engine.setUserAgent(s"${context.config.userAgent} #$id:${account.username}")
 
 		// Step2: <a>Sign In</a> をクリックする
-		def step2() = edt {
+		def step2() = ui.fx {
 			val links = engine.getDocument.getElementsByTagName("a").map{ _.asInstanceOf[Element] }
 			links.find { _.text.trim.toLowerCase == "sign in"} match {
 				case Some(a) =>
@@ -175,7 +199,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 		}
 
 		// Step3: ユーザ名/パスワードを入力してサインインの実行
-		def step3() = edt {
+		def step3() = ui.fx {
 			expectBrowserCallback {
 				engine.executeScript(
 					s"""document.getElementById('Email').value='${account.username}';
@@ -206,11 +230,11 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 	private[this] def signOut():Future[String] = if(signedIn.compareAndSet(true, false)) {
 		browser.setZoom(DefaultZoomLevel)
 		// <a>sign out</a> のクリック動作を行う
-		engine.getDocument.getElementsByTagName("a").toSeq.find { n => n.getTextContent.trim.toLowerCase == "sign out"} match {
+		engine.getDocument.getElementsByTagName("a").toSeq.find { case n:Element => n.text.trim.toLowerCase == "sign out" } match {
 			case Some(a: Element) =>
 				val promise = Promise[String]()
-				show(a.getAttribute("href")).foreach { _ => edt {
-					promise.completeWith(show("about:blank"))
+				show(a.getAttribute("href")).foreach { _ => ui.fx {
+					promise.completeWith(show(context.config.defaultUrl))
 				} }
 				promise.future
 			case Some(unknown) => throw new IllegalStateException(s"not a element: $unknown")
@@ -240,6 +264,7 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 	 */
 	def stop():Unit = if(stopped.compareAndSet(false, true)){
 		waiting.foreach{ _.cancel() }
+		waiting = None
 		if(signedIn.get){
 			signOut()
 		}
@@ -253,7 +278,10 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 	 * 指定された URL を表示します。
 	 * @return URL 表示完了の結果を表す Future
 	 */
-	private[this] def show(url:String):Future[String] = expectBrowserCallback{ engine.load(url) }
+	private[this] def show(url:String):Future[String] = {
+		context.accounts.get(scenario.account).map{ _.increment() }
+		expectBrowserCallback{ engine.load(url) }
+	}
 
 	// ==============================================================================================
 	// URL の表示
@@ -269,21 +297,8 @@ class Session(val id:Int, context:Context, scenario:Scenario, browser:WebView, u
 		promise.future
 	}
 
-	private[this] def edt[U](f: =>U):Future[U] = if(Platform.isFxApplicationThread){
-		Future.successful(f)
-	} else {
-		val promise = Promise[U]()
-		Platform.runLater(new Runnable {
-			override def run() = {
-				promise.success(f)
-			}
-		})
-		promise.future
-	}
-
 }
 object Session {
-
 
 	/**
 	 * シナリオ実行に使用するタイマー。

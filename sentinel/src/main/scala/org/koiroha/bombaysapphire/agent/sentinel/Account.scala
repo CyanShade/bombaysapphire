@@ -63,7 +63,7 @@ class Account(elem:Element){
 			if(! _used.compareAndSet(old, recent)){
 				rec()
 			} else {
-				(elem \ "request-timestamp").text = recent.mkString(",")
+				(elem \+ "request-timestamp").text = recent.mkString(",")
 			}
 		}
 		truncate()

@@ -5,6 +5,8 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
+import java.util.UUID
+
 import org.koiroha.bombaysapphire.agent.sentinel.Scenario.{Schedule, Interval}
 import org.koiroha.bombaysapphire.agent.sentinel.xml._
 import org.w3c.dom.{Document, Element}
@@ -16,8 +18,18 @@ import org.w3c.dom.{Document, Element}
  * @author Takami Torao
  */
 class Scenario(elem:Element){
+	lazy val id:UUID = UUID.fromString(elem.attr("id"))
+	if(elem.attr("id") == ""){
+		elem.attr("id", UUID.randomUUID().toString)
+	}
+
+	/** このシナリオが使用するアカウント */
 	def account:String = elem.attr("account")
 	def account_=(a:String):Unit = elem.attr("account", a)
+
+	/** このシナリオがオープンされているか */
+	def hidden:Boolean = elem.attr("hidden") == "hidden"
+	def hidden_=(b:Boolean) = elem.attr("hidden", if(b) "hidden" else "")
 
 	def waypoints = (elem \ "waypoints" \* "waypoint").flatMap{ e => WayPoint.parse(e.text) }
 	def waypoints_=(wps:Iterable[WayPoint]):Unit = {

@@ -5,7 +5,7 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{ByteArrayInputStream, File}
+import java.io.{ByteArrayInputStream, File, RandomAccessFile}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javafx.collections.ObservableListBase
@@ -14,6 +14,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 
+import org.koiroha.bombaysapphire.BombaySapphire
 import org.koiroha.bombaysapphire.agent.sentinel.xml._
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Document, Element}
@@ -32,6 +33,24 @@ class Context(val dir:File) {
 	/** 設定ファイル */
 	private[this] val file = new File(dir, "context.xml")
 
+	/** テンポラリディレクトリ */
+	val temp = new File(dir, "temp").getCanonicalFile
+	locally {
+		if(temp.isDirectory) {
+			def rm(d:File): Unit ={
+				d.listFiles().foreach{
+					case ds if ds.isDirectory =>
+						rm(ds)
+						ds.delete()
+					case f => f.delete()
+				}
+			}
+			rm(temp)
+		} else {
+			temp.mkdirs()
+		}
+	}
+
 	/**
 	 * 設定ファイルの内容。
 	 */
@@ -44,6 +63,7 @@ class Context(val dir:File) {
 			s"""<?xml version="1.0" encoding="UTF-8"?>
 			|<sentinel>
 			|<config>
+			|<param name="default-url" value="http://${BombaySapphire.RemoteHost}/events"/>
 			|<param name="user-agent" value="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 (Parasitized)"/>
 			|</config>
 			|<accounts/>
@@ -97,8 +117,11 @@ class Context(val dir:File) {
 		}
 		private[this] def set(name:String, value:Int):Unit = set(name, value.toString)
 		private[this] def set(name:String, value:Double):Unit = set(name, value.toString)
+		/** アイドル状態の時に表示するデフォルトページ */
+		def defaultUrl = get("default-url", s"http://${BombaySapphire.RemoteHost}/events")
+		def defaultUrl_=(url:String) = set("default-url", url)
 		/** リクエストに使用する User-Agent 名。 */
-		def userAgent = get("user-agent")
+		def userAgent = get("user-agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 (Parasitized)")
 		def userAgent_=(ua:String) = set("user-agent", ua)
 		/** シナリオを中止する OverLimit 発生回数。 */
 		def overLimitCountToStopScenario:Int = get("over-limit", 10)
@@ -113,6 +136,8 @@ class Context(val dir:File) {
 		val physicalScreenWidth = 800
 		/** スクリーンの縮小率 */
 		val screenScale = physicalScreenWidth.toDouble / logicalScreenSize._1
+		/** 物理スクリーン高 */
+		val physicalScreenHeight = logicalScreenSize._2 * screenScale
 		/** Intel Map 表示領域の物理サイズ (800x450) */
 		val viewSize = ((logicalScreenSize._1 * screenScale).toInt, (logicalScreenSize._2 * screenScale).toInt)
 		/** z=17 において 100[m]=206[pixel] (Retina), 1kmあたりのピクセル数 */
@@ -142,6 +167,7 @@ class Context(val dir:File) {
 			this.endChange()
 			new Account(elem)
 		}
+		def get(username:String):Option[Account] = list.find{ _.username == username }
 		override def get(index:Int):Account = list(index)
 		override def size():Int = list.size
 	}
@@ -169,19 +195,39 @@ class Context(val dir:File) {
 	}
 
 	// ==============================================================================================
-	// セッション
+	// シナリオ
 	// ==============================================================================================
 	/**
-	 * 実行可能なセッション。
+	 * 実行可能なシナリオ。
 	 */
-	object sessions {
-		private[this] val root = context.getDocumentElement \+ "sessions"
+	object scenario {
+		private[this] val root = context.getDocumentElement \+ "scenarios"
 		/** セッション一覧 */
-		def list = (root \* "session").map { elem => new Scenario(elem) }
+		def list = (root \* "scenario").map { elem => new Scenario(elem) }
 		def create():Scenario = {
 			val elem = Scenario.create(root.getOwnerDocument)
 			root << elem
 			new Scenario(elem)
+		}
+	}
+
+	// ==============================================================================================
+	// 新規セッションIDの参照
+	// ==============================================================================================
+	/**
+	 * 新しいセッションのためのIDを参照します。
+	 */
+	def newSessionId:Int = {
+		val path = new File(dir, ".session")
+		org.koiroha.bombaysapphire.io.using(new RandomAccessFile(path, "rw")){ file =>
+			file.getChannel.lock()
+			val num = if(file.length() != 4){
+				file.setLength(4)
+				0
+			} else file.readInt()
+			file.seek(0)
+			file.writeInt(num + 1)
+			num
 		}
 	}
 

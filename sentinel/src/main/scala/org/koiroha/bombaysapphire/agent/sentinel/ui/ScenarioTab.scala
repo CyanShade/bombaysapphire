@@ -5,7 +5,8 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel.ui
 
-import javafx.event.{ActionEvent, EventHandler}
+import javafx.beans.value.{ObservableValue, ChangeListener}
+import javafx.event.{Event, ActionEvent, EventHandler}
 import javafx.geometry.Insets
 import javafx.scene.control._
 import javafx.scene.layout.{BorderPane, GridPane, HBox}
@@ -18,13 +19,13 @@ import org.slf4j.LoggerFactory
 import scala.util.{Failure, Success}
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// SessionTab
+// ScenarioTab
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
  * @author Takami Torao
  */
-class SessionTab(context:Context, session:Scenario) extends Tab {
-	private[this] val logger = LoggerFactory.getLogger(classOf[SessionTab])
+class ScenarioTab(context:Context, scenario:Scenario) extends Tab {
+	private[this] val logger = LoggerFactory.getLogger(classOf[ScenarioTab])
 	val browser = new WebView()
 	val status = new Label()
 
@@ -32,6 +33,7 @@ class SessionTab(context:Context, session:Scenario) extends Tab {
 	val addAccount = new Button()
 
 	val patrol = new TextArea()
+	val url = new TextField()
 
 	object interval extends HBox {
 		val from = new TextField()
@@ -81,20 +83,11 @@ class SessionTab(context:Context, session:Scenario) extends Tab {
 
 		// アカウント選択用ドロップダウンリスト
 		account.getItems.addAll(context.accounts.list.map{ _.username }:_*)
-		/*
-		account.setConverter(new StringConverter[Account] {
-			override def fromString(string:String):Account = {
-				logger.error(s"fromString($string)")
-				throw new IllegalStateException(string)
-			}
-			override def toString(a:Account):String = a.username
-		})
-		*/
 
 		addAccount.setText("追加")
 
 		patrol.setWrapText(false)
-		patrol.setPromptText("position:緯度,経度\nkeyword:キーワード\nfile:kmlファイル.kml\n:矩形")
+		patrol.setPromptText("portal:緯度,経度\npoint:緯度,経度\nkeyword:キーワード\nfile:kmlファイル.kml\n:矩形")
 		patrol.setPrefColumnCount(20)
 
 		exec.setText("実行")
@@ -117,19 +110,31 @@ class SessionTab(context:Context, session:Scenario) extends Tab {
 		settings.add(schedule, 0, 7, 2, 1)
 		settings.add(exec, 1, 10)
 
+		val main = new BorderPane()
+		main.setTop(url)
+		main.setCenter(browser)
+
 		val panel1 = new BorderPane()
 		panel1.setRight(settings)
-		panel1.setCenter(browser)
+		panel1.setCenter(main)
 		panel1.setBottom(status)
 
 		this.setText("Session")
 		this.setContent(panel1)
 
+		url.setEditable(false)
+
 		val config = context.config
-		browser.setZoom(0.6)
+		// browser.setZoom(0.6)
 		browser.setMinSize(config.viewSize._1, config.viewSize._2)
 		browser.setPrefSize(config.viewSize._1, config.viewSize._2)
 		browser.setMaxSize(config.viewSize._1, config.viewSize._2)
+		browser.getEngine.load(context.config.defaultUrl)
+		browser.getEngine.locationProperty().addListener(new ChangeListener[String] {
+			override def changed(observable: ObservableValue[_ <: String], oldValue: String, newValue: String): Unit = {
+				url.setText(newValue)
+			}
+		})
 
 		addAccount.onActionProperty().setValue(new EventHandler[ActionEvent] {
 			override def handle(event: ActionEvent): Unit = {
@@ -140,26 +145,34 @@ class SessionTab(context:Context, session:Scenario) extends Tab {
 				}
 			}
 		})
+
+		this.setOnCloseRequest(new EventHandler[Event] {
+			override def handle(event: Event): Unit = {
+				updateContext()
+				scenario.hidden = true
+				context.save()
+			}
+		})
 	}
 
 	/**
 	 * Context の内容をこのタブに反映させます。
 	 */
 	def updateView():Unit = {
-		context.accounts.list.find{ _.username == session.account}.map{ _.username }.foreach{ account.setValue }
-		patrol.setText(session.waypoints.map{ _.toString }.mkString("\n"))
-		interval.fromInterval(session.interval)
-		schedule.fromSchedule(session.schedule)
+		context.accounts.list.find{ _.username == scenario.account}.map{ _.username }.foreach{ account.setValue }
+		patrol.setText(scenario.waypoints.map{ _.toString }.mkString("\n"))
+		interval.fromInterval(scenario.interval)
+		schedule.fromSchedule(scenario.schedule)
 	}
 
 	/**
 	 * このタブに表示されている入力内容を Context に反映させます。
 	 */
 	def updateContext():Unit = {
-		session.account = Option(account.getValue).getOrElse("")
-		session.waypoints = patrol.getText.split("\n+").filterNot{ _.isEmpty }.flatMap{ ws => WayPoint.parse(ws)}
-		session.interval = interval.toInterval
-		session.schedule = schedule.toSchedule
+		scenario.account = Option(account.getValue).getOrElse("")
+		scenario.waypoints = patrol.getText.split("\n+").filterNot{ _.isEmpty }.flatMap{ ws => WayPoint.parse(ws)}
+		scenario.interval = interval.toInterval
+		scenario.schedule = schedule.toSchedule
 	}
 
 	/**
@@ -174,29 +187,42 @@ class SessionTab(context:Context, session:Scenario) extends Tab {
 	/**
 	 * シナリオ実行用に全てのコントロールを非活性化。
 	 */
-	def setInputDisabled(disabled:Boolean):Unit = {
+	def setInputDisabled(disabled:Boolean):Unit = fx{
 		Seq(
-			account, addAccount, patrol, exec,
+			account, addAccount, patrol,
 			interval.from, interval.to,
 			schedule.minutes, schedule.hours, schedule.dates, schedule.month, schedule.week, schedule.exec
-		).foreach{ _.setDisable(disabled) }
+		).foreach{
+			case c:TextInputControl => c.setEditable(! disabled)
+			case c => c.setDisable(disabled)
+		}
+		if(disabled) {
+			browser.getEngine.load(context.config.defaultUrl)
+			exec.setText("中止")
+		} else {
+			exec.setText("実行")
+		}
 	}
 
 	/**
 	 * シナリオの実行。
 	 */
-	def run():Unit = {
-		import scala.concurrent.ExecutionContext.Implicits.global
-		setInputDisabled(true)
-		updateContext()
-		context.save()
-		_session = Some(new Session(0, context, session, browser, context.config.userAgent))
-		_session.foreach{ _.start().onComplete{
-			case Success(_) =>
-				setInputDisabled(false)
-			case Failure(ex) =>
-				setInputDisabled(false)
-		} }
+	def run():Unit = _session match {
+		case Some(s) =>
+			s.stop()
+			_session = None
+		case None =>
+			import scala.concurrent.ExecutionContext.Implicits.global
+			setInputDisabled(true)
+			updateContext()
+			context.save()
+			_session = Some(new Session(context, scenario, browser))
+			_session.foreach{ _.start().onComplete{
+				case Success(_) =>
+					setInputDisabled(false)
+				case Failure(ex) =>
+					setInputDisabled(false)
+			} }
 	}
 
 	updateView()

@@ -8,7 +8,7 @@ package org.koiroha.bombaysapphire.agent.sentinel
 import java.io.File
 import java.net.InetSocketAddress
 import javafx.application.Application
-import javafx.event.{ActionEvent, Event, EventHandler}
+import javafx.event.{ActionEvent, Event}
 import javafx.scene.Scene
 import javafx.scene.control._
 import javafx.scene.layout.BorderPane
@@ -17,7 +17,7 @@ import javax.net.ssl._
 
 import org.koiroha.bombaysapphire.BombaySapphire
 import org.koiroha.bombaysapphire.agent.ParasitizedSSLSocketFactory
-import org.koiroha.bombaysapphire.agent.sentinel.ui.{DashboardTab, SessionTab}
+import org.koiroha.bombaysapphire.agent.sentinel.ui._
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Node, NodeList}
 
@@ -42,7 +42,7 @@ class Sentinel extends Application  {
 
 	private[this] var clients = Map[Int,Session]()
 
-	private[this] val sessions = new TabPane()
+	private[this] val scenarios = new TabPane()
 
 	// ==============================================================================================
 	// アプリケーションの初期化
@@ -106,9 +106,19 @@ class Sentinel extends Application  {
 			file.getItems.addAll(quit)
 
 			val session = new Menu("Session")
-			val create = new MenuItem("Create")
-			create.setOnAction({ e:ActionEvent => this.newSession() })
-			session.getItems.addAll(create)
+			val create = new MenuItem("New")
+			create.setOnAction({ e:ActionEvent => this.newScenario() })
+			session.getItems.addAll(create, new SeparatorMenuItem())
+
+			session.setOnShowing({ e:Event =>
+				val i = session.getItems
+				i.remove(2, i.size())
+				session.getItems.addAll(context.get.scenario.list.filter{ _.hidden }.map{ s =>
+					val i = new MenuItem(s.account)
+					i.setOnAction({ e:ActionEvent => openScenario(s) })
+					i
+				}:_*)
+			})
 
 			menuBar.getMenus.addAll(file, session)
 		}
@@ -118,15 +128,15 @@ class Sentinel extends Application  {
 
 			// ダッシュボードタブ
 			val dashboard = new DashboardTab()
-			sessions.getTabs.add(dashboard)
+			scenarios.getTabs.add(dashboard)
 
-			context.get.sessions.list.foreach{ openSession }
+			context.get.scenario.list.filterNot{ _.hidden }.foreach{ openScenario }
 		}
 
 		// 配置
 		val root = new BorderPane()
 		root.setTop(menuBar)
-		root.setCenter(sessions)
+		root.setCenter(scenarios)
 
 		// ウィンドウの生成と表示
 		primaryStage.setTitle("Sentinel")
@@ -144,15 +154,15 @@ class Sentinel extends Application  {
 		stage.close()
 	}
 
-	private[this] def newSession():Unit = {
-		openSession(context.get.sessions.create())
-		context.get.save()
+	private[this] def newScenario():Unit = context.foreach{ c =>
+		openScenario(c.scenario.create())
+		c.save()
 	}
 
-	private[this] def openSession(s:Scenario):Unit = {
-		val tab = new SessionTab(context.get, s)
-		tab.browser.getEngine.load(s"http://${BombaySapphire.RemoteHost}/events")
-		sessions.getTabs.add(tab)
+	private[this] def openScenario(s:Scenario):Unit = context.foreach{ c =>
+		s.hidden = false
+		scenarios.getTabs.add(new ScenarioTab(c, s))
+		c.save()
 	}
 
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -266,10 +276,6 @@ object Sentinel {
 
 	implicit class _NodeList(nl:NodeList) {
 		def toList:List[Node] = (0 until nl.getLength).map{ nl.item }.toList
-	}
-
-	implicit def _f2EventHandler[T <: Event](f:T=>Unit):EventHandler[T] = new EventHandler[T]{
-		override def handle(e:T):Unit = f(e)
 	}
 
 }
