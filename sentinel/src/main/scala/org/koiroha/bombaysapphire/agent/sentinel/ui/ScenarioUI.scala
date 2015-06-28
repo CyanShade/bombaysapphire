@@ -9,6 +9,7 @@ import javafx.concurrent.Worker
 import javafx.event.ActionEvent
 import javafx.geometry.Insets
 import javafx.scene.control._
+import javafx.scene.input.{KeyCombination, KeyCode, KeyCodeCombination}
 import javafx.scene.layout._
 import javafx.scene.web.WebView
 import javafx.stage.FileChooser.ExtensionFilter
@@ -55,9 +56,12 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 		locally {
 			// File メニュー
 			val file = new Menu("File")
+			val save = new MenuItem("Save")
 			val quit = new MenuItem("Quit")
+			save.setOnAction({ e:ActionEvent => context.save() })
+			save.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN))
 			quit.setOnAction({ e:ActionEvent => stage.close() })
-			file.getItems.addAll(quit)
+			file.getItems.addAll(save, new SeparatorMenuItem(), quit)
 			// Debug メニュー
 			val debug = new Menu("Debug")
 			val exportKML = new MenuItem("Export Waypoints KML")
