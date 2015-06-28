@@ -183,13 +183,11 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 	private[this] var batch:Option[String] = None
 	private[this] def schedule(enabled:Boolean):Unit = if(enabled) {
 		batch.foreach{ context.scenario.schedule.deschedule }
-		batch = Some(context.scenario.schedule.schedule{
+		batch = Some(context.scenario.schedule.schedule {
 			fx {
 				if(_session.isEmpty){
 					execute()
 				}
-				batch = None
-				schedule(true)
 			}
 		})
 		logger.info(s"スケジュール実行が登録されました: ${batch.get}")
