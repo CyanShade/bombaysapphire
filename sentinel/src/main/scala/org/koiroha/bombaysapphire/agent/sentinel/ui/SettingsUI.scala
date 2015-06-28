@@ -10,11 +10,12 @@ import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.event.Event
 import javafx.geometry.{Insets, Pos}
+import javafx.scene.Node
 import javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory
 import javafx.scene.control.TableColumn.CellDataFeatures
 import javafx.scene.control._
 import javafx.scene.control.cell.{CheckBoxTableCell, PropertyValueFactory}
-import javafx.scene.layout.{GridPane, HBox}
+import javafx.scene.layout.{AnchorPane, GridPane, HBox}
 import javafx.util.Callback
 
 import org.koiroha.bombaysapphire.agent.sentinel._
@@ -29,13 +30,19 @@ import org.slf4j.LoggerFactory
 class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 	import org.koiroha.bombaysapphire.agent.sentinel.ui.SettingsUI._
 
+	/** ユーザ名入力フィールド */
 	val username = new TextField()
+
+	/** パスワード入力フィールド */
 	val password = new PasswordField()
 
+	/** 巡回点入力フィールド */
 	val waypoints = new TextArea()
 
+	/** 定時実行用のスケジューラー ON/OFF を通知するプロパティ。 */
 	val scheduleProperty = new SimpleBooleanProperty()
 
+	/** 移動間隔の入力フィールド。 */
 	object interval extends HBox {
 		val from = new Spinner[Integer]()
 		val to = new Spinner[Integer]()
@@ -54,6 +61,7 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		}
 	}
 
+	/** 実行完了までの予想時間を通知するためのプロパティ。 */
 	object statusProperty extends SimpleStringProperty {
 		def update():Unit = {
 			val count = context.scenario.waypoints.flatMap{
@@ -186,7 +194,7 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		val tab1 = new Tab()
 		tab1.setText("哨戒")
 		tab1.setClosable(false)
-		tab1.setContent(settings)
+		tab1.setContent(settings.withAnchor(4.0, 4.0, 0.0, 0.0))
 
 		val batch = new GridPane()
 		batch.setHgap(4)
@@ -197,7 +205,7 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		val tab2 = new Tab()
 		tab2.setText("自動")
 		tab2.setClosable(false)
-		tab2.setContent(batch)
+		tab2.setContent(batch.withAnchor(4.0, 4.0, 0.0, 0.0))
 		tab2.setOnSelectionChanged({ e:Event =>
 			if(tab2.isSelected){
 				status.setValue(schedule.status)
@@ -207,7 +215,7 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		val tab3 = new Tab()
 		tab3.setText("出力")
 		tab3.setClosable(false)
-		tab3.setContent(destinations)
+		tab3.setContent(destinations.withAnchor(4.0, 4.0, 0.0, 0.0))
 
 		this.getTabs.addAll(tab1, tab2, tab3)
 	}
@@ -253,5 +261,14 @@ object SettingsUI {
 			t.addListener({ (oldValue:T, newValue:T) => set(newValue)})
 		}
 	}
-
+	implicit class _Node(n:Node) {
+		def withAnchor(margin:Double):AnchorPane = withAnchor(margin, margin, margin, margin)
+		def withAnchor(top:Double, right:Double, bottom:Double, left:Double):AnchorPane = {
+			AnchorPane.setTopAnchor(n, top)
+			AnchorPane.setRightAnchor(n, right)
+			AnchorPane.setBottomAnchor(n, bottom)
+			AnchorPane.setLeftAnchor(n, left)
+			new AnchorPane(n)
+		}
+	}
 }
