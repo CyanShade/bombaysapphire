@@ -50,6 +50,7 @@ package object xml {
 		def text_=(value:String):Unit = elem.clear().appendChild(elem.getOwnerDocument.createTextNode(value))
 		def attr(name:String):String = elem.getAttribute(name)
 		def attr(name:String, value:String):Unit = elem.setAttribute(name, value)
+		def hasAttr(name:String):Boolean = elem.hasAttribute(name)
 		def <<(e:Node):Element = {
 			elem.appendChild(e)
 			elem

@@ -101,7 +101,7 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 		val center = new GridPane()
 		center.setHgap(4)
 		center.add(wrapper, 0, 0)
-		center.add(settings, 1, 0)
+		center.add(settings, 1, 0)git
 
 		val main = new BorderPane()
 		main.setTop(top)

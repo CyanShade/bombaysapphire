@@ -72,7 +72,7 @@ class Context(val file:File) {
 		private[this] val root = context.getDocumentElement \+ "config"
 		private[this] def param(name:String):Option[Element] = (root \* "param").find{ _.attr("name") == name }
 		private[this] def get(name:String, default:String = ""):String = param(name) match {
-			case Some(elem) => elem.attr(name)
+			case Some(elem) => if(elem.hasAttr("value")) elem.attr("value") else default
 			case None => default
 		}
 		private[this] def get(name:String, default:Int):Int = try {
@@ -100,7 +100,7 @@ class Context(val file:File) {
 		private[this] def set(name:String, value:Int):Unit = set(name, value.toString)
 		private[this] def set(name:String, value:Double):Unit = set(name, value.toString)
 		/** アイドル状態の時に表示するデフォルトページ */
-		def defaultUrl = get("default-url", s"http://${BombaySapphire.RemoteHost}/events")
+		def defaultUrl = get("default-url", s"http://${BombaySapphire.RemoteHost}/intel")
 		def defaultUrl_=(url:String) = set("default-url", url)
 		/** リクエストに使用する User-Agent 名。 */
 		def userAgent = get("user-agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 (Parasitized)")
