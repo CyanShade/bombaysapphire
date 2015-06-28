@@ -5,10 +5,11 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{ByteArrayInputStream, File, RandomAccessFile}
+import java.io.{ByteArrayInputStream, File}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import javafx.collections.ObservableListBase
+import java.util.concurrent.atomic.AtomicInteger
+import javafx.stage.Screen
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.transform.TransformerFactory
 import javax.xml.transform.dom.DOMSource
@@ -16,6 +17,7 @@ import javax.xml.transform.stream.StreamResult
 
 import org.koiroha.bombaysapphire.BombaySapphire
 import org.koiroha.bombaysapphire.agent.sentinel.xml._
+import org.koiroha.bombaysapphire.geom.Dimension
 import org.slf4j.LoggerFactory
 import org.w3c.dom.{Document, Element}
 import org.xml.sax.InputSource
@@ -24,32 +26,11 @@ import org.xml.sax.InputSource
 // Context
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
- * @param dir Sentinel の設定/作業ディレクトリ
+ * @param file Sentinel の設定/作業ディレクトリ
  * @author Takami Torao
  */
-class Context(val dir:File) {
+class Context(val file:File) {
 	import org.koiroha.bombaysapphire.agent.sentinel.Context._
-
-	/** 設定ファイル */
-	private[this] val file = new File(dir, "context.xml")
-
-	/** テンポラリディレクトリ */
-	val temp = new File(dir, "temp").getCanonicalFile
-	locally {
-		if(temp.isDirectory) {
-			def rm(d:File): Unit ={
-				d.listFiles().foreach{
-					case ds if ds.isDirectory =>
-						rm(ds)
-						ds.delete()
-					case f => f.delete()
-				}
-			}
-			rm(temp)
-		} else {
-			temp.mkdirs()
-		}
-	}
 
 	/**
 	 * 設定ファイルの内容。
@@ -66,10 +47,11 @@ class Context(val dir:File) {
 			|<param name="default-url" value="http://${BombaySapphire.RemoteHost}/events"/>
 			|<param name="user-agent" value="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 (Parasitized)"/>
 			|</config>
-			|<accounts/>
+			|<account/>
+			|<scenario interval="60,60" schedule="0 0 * * *"><waypoints/></scenario>
 			|<destinations>
 			|<sink uri="garuda:http://localhost:8099/api/1.0" enabled="true"/>
-			|<sink uri="${dir.toURI}/sentinel.log" enabled="false"/>
+			|<sink uri="${new File(file.getParentFile, "sentinel.log").getCanonicalFile.toURI}" enabled="false"/>
 			|</destinations>
 			|</sentinel>""".stripMargin('|').getBytes(StandardCharsets.UTF_8)
 		}
@@ -131,46 +113,41 @@ class Context(val dir:File) {
 		def distanceKM_=(d:Double) = set("distance", d)
 
 		/** Sentinel で表示する Intel Map の論理スクリーンサイズ */
-		val logicalScreenSize = (5120, 2880)
+		// val logicalScreenSize = (5120, 2880)
+		val logicalScreenSize = {
+			val s = Screen.getPrimary.getVisualBounds
+			Dimension(s.getWidth, s.getHeight)
+		}
 		/** 物理スクリーン幅 */
-		val physicalScreenWidth = 800
+		private[this] val physicalScreenWidth = 800
 		/** スクリーンの縮小率 */
-		val screenScale = physicalScreenWidth.toDouble / logicalScreenSize._1
-		/** 物理スクリーン高 */
-		val physicalScreenHeight = logicalScreenSize._2 * screenScale
-		/** Intel Map 表示領域の物理サイズ (800x450) */
-		val viewSize = ((logicalScreenSize._1 * screenScale).toInt, (logicalScreenSize._2 * screenScale).toInt)
+		val screenScale = physicalScreenWidth.toDouble / logicalScreenSize.width
+		/** Intel Map 表示領域の物理スクリーンサイズ (800x450) */
+		val physicalScreen = Dimension(logicalScreenSize.width * screenScale, logicalScreenSize.height * screenScale)
 		/** z=17 において 100[m]=206[pixel] (Retina), 1kmあたりのピクセル数 */
-		private[this] val unitKmPixels = 206 * (1000.0 / 100)
+//		private[this] val unitKmPixels = 206 * (1000.0 / 100)
+		/** z=17 において 1.67[km]=1740[pixel] (Retina), 1kmあたりのピクセル数 */
+		private[this] val unitKmPixels = 1740 / 1.67
 		/** 表示領域が示す縦横の距離[km] (実際はマージンがあるが) */
-		val areaSize = (logicalScreenSize._1 / unitKmPixels, logicalScreenSize._2 / unitKmPixels)
-		logger.info(f"スクリーンの実際の距離: ${areaSize._1}%.2fkm × ${areaSize._2}%.2fkm")
+		val screenRegion = Dimension(logicalScreenSize.width / unitKmPixels, logicalScreenSize.height / unitKmPixels)
+		logger.info(f"スクリーンの実際の距離: ${screenRegion.width}%.2fkm × ${screenRegion.height}%.2fkm")
 	}
 
 	// ==============================================================================================
 	// アカウント
 	// ==============================================================================================
 	/**
-	 * Sentinel が使用可能なアカウント。
-	 * 読み込み専用の ObservableList[Account] として使用可能。
+	 * Sentinel のシナリオ実行に使用するアカウント。
 	 */
-	object accounts extends ObservableListBase[Account]{
-		private[this] val root = context.getDocumentElement \+ "accounts"
-		/** アカウント一覧 */
-		def list = (root \* "account").map{ e => new Account(e) }
-		/** 新規アカウントの作成 */
-		def create(username:String, password:String):Account = {
-			val elem = Account.create(root.getOwnerDocument, username, password)
-			root << elem
-			this.beginChange()
-			nextAdd(list.size-1, list.size)
-			this.endChange()
-			new Account(elem)
-		}
-		def get(username:String):Option[Account] = list.find{ _.username == username }
-		override def get(index:Int):Account = list(index)
-		override def size():Int = list.size
-	}
+	val account = new Account(context.getDocumentElement \+ "account")
+
+	// ==============================================================================================
+	// シナリオ
+	// ==============================================================================================
+	/**
+	 * 実行可能なシナリオ。
+	 */
+	val scenario = new Scenario(context.getDocumentElement \+ "scenario")
 
 	// ==============================================================================================
 	// 宛先
@@ -195,41 +172,13 @@ class Context(val dir:File) {
 	}
 
 	// ==============================================================================================
-	// シナリオ
-	// ==============================================================================================
-	/**
-	 * 実行可能なシナリオ。
-	 */
-	object scenario {
-		private[this] val root = context.getDocumentElement \+ "scenarios"
-		/** セッション一覧 */
-		def list = (root \* "scenario").map { elem => new Scenario(elem) }
-		def create():Scenario = {
-			val elem = Scenario.create(root.getOwnerDocument)
-			root << elem
-			new Scenario(elem)
-		}
-	}
-
-	// ==============================================================================================
 	// 新規セッションIDの参照
 	// ==============================================================================================
 	/**
 	 * 新しいセッションのためのIDを参照します。
 	 */
-	def newSessionId:Int = {
-		val path = new File(dir, ".session")
-		org.koiroha.bombaysapphire.io.using(new RandomAccessFile(path, "rw")){ file =>
-			file.getChannel.lock()
-			val num = if(file.length() != 4){
-				file.setLength(4)
-				0
-			} else file.readInt()
-			file.seek(0)
-			file.writeInt(num + 1)
-			num
-		}
-	}
+	def newSessionId:Int = sessionSeed.getAndIncrement
+	private[this] val sessionSeed = new AtomicInteger(0)
 
 	// ==============================================================================================
 	// 設定の保存
@@ -238,6 +187,7 @@ class Context(val dir:File) {
 	 * この内容をファイルに保存します。
 	 */
 	def save():Unit = {
+		val dir = file.getParentFile
 		if(! dir.isDirectory){
 			logger.info(s"context directory is not exist, create new one: $dir")
 			dir.mkdirs()

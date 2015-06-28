@@ -6,6 +6,7 @@
 package org.koiroha.bombaysapphire.agent.sentinel
 
 import javafx.application.Platform
+import javafx.beans.value.{ObservableValue, ChangeListener}
 import javafx.event.{Event, EventHandler}
 
 import scala.concurrent.{Promise, Future}
@@ -24,6 +25,11 @@ package object ui {
 
 	implicit def _func2EventHandler[T<:Event,U](f:(T)=>U):EventHandler[T] = new EventHandler[T] {
 		override def handle(event:T):Unit = f(event)
+	}
+	implicit def _func2ChangeListener[T,U](f:(T,T)=>U):ChangeListener[T] = new ChangeListener[T] {
+		override def changed(observable: ObservableValue[_ <: T], oldValue: T, newValue: T): Unit = {
+			f(oldValue, newValue)
+		}
 	}
 
 }

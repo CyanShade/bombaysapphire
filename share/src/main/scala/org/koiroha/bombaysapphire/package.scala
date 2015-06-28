@@ -38,6 +38,8 @@ package object geom {
 		def rectangle: Rectangle
 	}
 
+	case class Dimension(width:Double, height:Double)
+
 	case class Polygon(points: Seq[LatLng]) extends Shape {
 		assert(points.size >= 3)
 		/** (lat,lng) の多角形 */

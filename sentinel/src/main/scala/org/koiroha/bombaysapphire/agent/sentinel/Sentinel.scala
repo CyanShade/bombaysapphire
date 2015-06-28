@@ -8,11 +8,8 @@ package org.koiroha.bombaysapphire.agent.sentinel
 import java.io.File
 import java.net.InetSocketAddress
 import javafx.application.Application
-import javafx.event.{ActionEvent, Event}
 import javafx.scene.Scene
-import javafx.scene.control._
-import javafx.scene.layout.BorderPane
-import javafx.stage.Stage
+import javafx.stage.{WindowEvent, Stage}
 import javax.net.ssl._
 
 import org.koiroha.bombaysapphire.BombaySapphire
@@ -42,8 +39,6 @@ class Sentinel extends Application  {
 
 	private[this] var clients = Map[Int,Session]()
 
-	private[this] val scenarios = new TabPane()
-
 	// ==============================================================================================
 	// アプリケーションの初期化
 	// ==============================================================================================
@@ -52,14 +47,15 @@ class Sentinel extends Application  {
 	 */
 	override def init():Unit = {
 
-		// 設定/作業ディレクトリを参照
-		val dir = new File(getParameters.getUnnamed.toList match {
-			case _dir :: rest => _dir
-			case Nil => s"${System.getProperty("user.home")}${File.separator}.sentinel"
+		// 設定ファイルを参照
+		val file = new File(getParameters.getUnnamed.toList match {
+			case f :: rest => f
+			case Nil => s"${System.getProperty("user.home")}${File.separator}sentinel.xml"
 		})
-		logger.debug(s"initializing sentinel by application directory: $dir")
+		logger.debug(s"initializing sentinel by application conf: $file")
 
-		val context = new Context(dir)
+		// コンテキストを読み出し
+		val context = new Context(file)
 		this.context = Some(context)
 		context.save()
 
@@ -96,51 +92,16 @@ class Sentinel extends Application  {
 	 * WebView を配置してウィンドウを生成。
 	 */
 	override def start(primaryStage:Stage):Unit = {
-
-		// メニューバー
-		val menuBar = new MenuBar()
-		locally {
-			val file = new Menu("File")
-			val quit = new MenuItem("Quit")
-			quit.setOnAction({ e:ActionEvent => this.quit(primaryStage) })
-			file.getItems.addAll(quit)
-
-			val session = new Menu("Session")
-			val create = new MenuItem("New")
-			create.setOnAction({ e:ActionEvent => this.newScenario() })
-			session.getItems.addAll(create, new SeparatorMenuItem())
-
-			session.setOnShowing({ e:Event =>
-				val i = session.getItems
-				i.remove(2, i.size())
-				session.getItems.addAll(context.get.scenario.list.filter{ _.hidden }.map{ s =>
-					val i = new MenuItem(s.account)
-					i.setOnAction({ e:ActionEvent => openScenario(s) })
-					i
-				}:_*)
-			})
-
-			menuBar.getMenus.addAll(file, session)
-		}
+		primaryStage.setOnCloseRequest({ e:WindowEvent =>
+			stop()
+		})
 
 		// クライアント領域
-		locally {
-
-			// ダッシュボードタブ
-			val dashboard = new DashboardTab()
-			scenarios.getTabs.add(dashboard)
-
-			context.get.scenario.list.filterNot{ _.hidden }.foreach{ openScenario }
-		}
-
-		// 配置
-		val root = new BorderPane()
-		root.setTop(menuBar)
-		root.setCenter(scenarios)
+		val scenario = new ScenarioUI(context.get, primaryStage)
 
 		// ウィンドウの生成と表示
 		primaryStage.setTitle("Sentinel")
-		val scene = new Scene(root)
+		val scene = new Scene(scenario)
 		primaryStage.setScene(scene)
 		primaryStage.show()
 	}
@@ -154,120 +115,6 @@ class Sentinel extends Application  {
 		stage.close()
 	}
 
-	private[this] def newScenario():Unit = context.foreach{ c =>
-		openScenario(c.scenario.create())
-		c.save()
-	}
-
-	private[this] def openScenario(s:Scenario):Unit = context.foreach{ c =>
-		s.hidden = false
-		scenarios.getTabs.add(new ScenarioTab(c, s))
-		c.save()
-	}
-
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	// シナリオ
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	/**
-	 * サインインが完了すると地点表示ループに入り北西側の緯度経度から南東側の緯度経度に向かって特定の距離ごとに表示
-	 * して行く。
-	 */
-	/*
-	private[this] class Scenario(conf:Config, engine:WebEngine, browser:Closeable) {
-		/** 開始時間 */
-		private[this] val start = System.currentTimeMillis()
-		private[this] var signedIn = false
-
-		private[this] val waypoints = conf.newWayPoints{ tileKey => tileKeys.contains(tileKey) }
-		private[this] val points = waypoints.by(conf.patrolRegion)
-		logger.info(f"${waypoints.toString} に対して ${points.remains}%,d 地点を巡回しています")
-
-		private[this] val maxPositions = points.remains
-		private[this] var patroledPoints = 0
-
-		def next():Unit = if(engine.getLocation == s"https://${BombaySapphire.RemoteHost}/intel") {
-			if (! signedIn) {
-				// Step1: <a>Sign In</a> をクリックする
-				engine.getDocument.getElementsByTagName("a").toList.find { n => n.getTextContent == "Sign in"} match {
-					case Some(a: Element) =>
-						val url = a.getAttribute("href")
-						engine.load(url)
-						logger.info(s"初期ページ表示: $url")
-					case _ =>
-						logger.error(s"初期ページに Sign-in ボタンが見付かりません")
-						browser.close()
-				}
-			} else {
-				// 各地点を表示する
-				nextMapMove(5000)
-			}
-		} else if(engine.getLocation.matches("https://accounts\\.google\\.com/ServiceLogin\\?.*")) {
-			// サインインを自動化
-			engine.executeScript(
-				s"""document.getElementById('Email').value='${conf.account}';
-					|document.getElementById('Passwd').value='${conf.password}';
-					|document.getElementById('signIn').click();
-				""".stripMargin)
-			logger.info(s"Sign-in 実行: ${engine.getLocation}")
-			signedIn = true
-		} else if(engine.getLocation.startsWith(s"https://${BombaySapphire.RemoteHost}/intel?")) {
-			None
-		} else if(engine.getLocation.startsWith("https://accounts.google.com/CheckCookie?")){
-			logger.debug(s"CookieCheck page redirect")
-			None
-		} else {
-			logger.info(s"予期しないページが表示されました: ${engine.getLocation}")
-			browser.close()
-		}
-
-		// ============================================================================================
-		// 表示位置移動ループ
-		// ============================================================================================
-		/**
-		 * 指定時間後に指定された場所を表示。位置が south/east を超えたらウィンドウを閉じる。
-		 */
-		def nextMapMove(tm:Long):Unit = {
-			if(points.remains == 0){
-				// 全ての地点を表示し終えていたらウィンドウをクローズ
-				logger.debug(s"全ての哨戒が完了しました: $remainsText")
-				browser.close()
-			} else {
-				val LatLng(lat,lng) = points.next()
-				def _exec() = {
-					patroledPoints += 1
-					logger.info(f"[$patroledPoints%,d/${points.remains}%,d] $lat%.6f/$lng%.6f; $remainsText")
-					// 指定された位置を表示; z=17 で L0 のポータルが表示されるズームサイズ
-					engine.load(s"https://${BombaySapphire.RemoteHost}/intel?ll=$lat,$lng&z=17")
-					nextMapMove(conf.intervalSeconds * 1000)
-				}
-				Batch.runAfter(tm){
-					Platform.runLater(new Runnable {
-						override def run() = _exec()
-					})
-				}
-			}
-		}
-
-		/** ログ出力用の経過時間 */
-		private[this] def remainsText:String = {
-			def span(msec:Long):String = {
-				val sec = msec / 1000
-				val t = f"${sec/60/60%24}%d:${sec/60%60}%02d:${sec%60}%02d"
-				if(sec < 24 * 60 * 60) t else f"${sec/60/60/24}%,d days, $t"
-			}
-			val tm = System.currentTimeMillis() - start
-			if(points.remains == 0 || patroledPoints == 0){
-				span(tm)
-			} else {
-				val progress = patroledPoints.toDouble / points.remains
-				val remains = (tm / progress).toLong
-				val assumedEnd = System.currentTimeMillis() + remains
-				val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-				s"${span(tm)} (残り ${span(remains)}; ${df.format(assumedEnd)} 終了予定)"
-			}
-		}
-	}
-	*/
 }
 
 object Sentinel {

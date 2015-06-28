@@ -15,6 +15,7 @@ libraryDependencies ++= Seq(
   "org.koiroha" %% "bombaysapphire-share" % "1.0.0-SNAPSHOT",
   "com.twitter" %% "finagle-http" % "6.+",
   "org.json4s" %% "json4s-native" % "3.2.+",
+  "it.sauronsoftware.cron4j" % "cron4j" % "2.2.5",
   "org.slf4j" %  "slf4j-log4j12" % "latest.integration"
 )
 
