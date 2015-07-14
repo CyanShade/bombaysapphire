@@ -14,8 +14,64 @@
   <div class="row">
     <div class="col-md-7">
       <h2>@farm.name</h2>
-      <div>@farm.portals Portals</div>
+      <div>@farm.strictPortals ポータル</div>
       <div>@Html(farm.description)</div>
+      <div>
+        <table class="table table-hover table-condensed">
+          <tr>
+            <th>計測時刻</th>
+            <td>@(new java.text.SimpleDateFormat("M月d日 ah:mm").format(farm.measuredAt))</td>
+          </tr>
+          <tr>
+            <th>ポータル占有数</th>
+            <td>RES @farm.portals.r / ENL @farm.portals.e</td>
+            <td>@gauge(farm.portals.r, farm.portals.e, farm.measuredPortals - farm.portals.r - farm.portals.e)</td>
+          </tr>
+          <tr>
+            <th>平均ポータルレベル</th>
+            <td>P@num(farm.totalLevel): RES @num(farm.level.r) / ENL @num(farm.level.e)</td>
+            <td>@gauge(farm.level.r, farm.level.e)</td>
+          </tr>
+          <tr>
+            <th>P8+リーチ</th>
+            <td>@(farm.p8Reach.r + farm.p8Reach.e)<small> [Portals]</small></td>
+          </tr>
+          <tr>
+            <th>Hack Limit</th>
+            <td>@(4 * farm.strictPortals + farm.additionalHack)<small> [Hacks]</small></td>
+          </tr>
+          <tr>
+            <th>平均再ハック可能時間</th>
+            <td>
+              @time((5 * 60 * farm.cooldownRatio).toInt)
+            </td>
+          </tr>
+          <tr>
+            <th>連続ハックインターバル</th>
+            <td>
+              @time(math.max(0, (5 * 60 * farm.cooldownRatio).toInt - 30 * farm.strictPortals))
+            </td>
+          </tr>
+          <tr>
+            <th>最短Burnout概算時間</th>
+            <td>
+              @time((4 * farm.strictPortals + farm.additionalHack) * (30 +math.max(0, (5 * 60 * farm.cooldownRatio).toInt - 30 * farm.strictPortals)))
+            </td>
+          </tr>
+          <tr>
+            <th>平均シールドMitigation</th>
+            <td>RES @farm.mitigation.r.toInt / ENL @farm.mitigation.e.toInt</td>
+          </tr>
+          <tr>
+            <th>平均レゾネーター本数</th>
+            <td>RES @farm.resonators.r / ENL @farm.resonators.e</td>
+          </tr>
+          <tr>
+            <th>全レゾネーター本数</th>
+            <td>RES @((farm.resonators.r * farm.portals.r).toInt) / ENL @((farm.resonators.e * farm.portals.e).toInt)</td>
+          </tr>
+        </table>
+      </div>
     </div>
     <div class="col-md-5">
       <div id="farm_map" style="height:320px;"></div>
@@ -44,3 +100,15 @@ $(function(){
 });
 </script>
 }
+
+@gauge(r:Float, e:Float, n:Float = 0) = {
+<table border="0" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="background-color:blue;height:1em;width:@(200*r/(r+e+n))px;display:relative;" title="@r"></td>
+    <td style="background-color:gray;height:1em;width:@(200*n/(r+e+n))px;display:relative;" title="@n"></td>
+    <td style="background-color:green;height:1em;width:@(200*e/(r+e+n))px;display:relative;" title="@e"></td>
+  </tr>
+</table>
+}
+@time(sec:Int) = {@if(sec>=60){@(sec/60)分}@if(sec%60!=0){@(sec%60)秒}}
+@num(i:Float) = {@(new java.text.DecimalFormat("###,###,##0.0").format(i))}

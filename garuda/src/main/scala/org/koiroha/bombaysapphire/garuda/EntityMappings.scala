@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory
 
 import Implicit._
 
+import scala.util.Try
+
 /**
  * Enlightened, Resistance (あるいは Neutral) を表す定数。DB 保存用にそれぞれ識別文字を持っている。
  */
@@ -278,6 +280,7 @@ case class PortalDetails(health:Double, image:String, latE6:Int, level:Int, lngE
 		}
 	}
 object PortalDetails {
+	private val logger = LoggerFactory.getLogger(getClass.getName.dropRight(1))
 	private[this] implicit val formats = DefaultFormats
 	/**
 	 * {
@@ -290,8 +293,45 @@ object PortalDetails {
 	     }
 	 }
 	 */
-	case class Mod(name:String, owner:String, rarity:String, stats:Map[String,String])
+	case class Mod(name:String, owner:String, rarity:String, stats:Map[String,String]) {
+		private def getInt(name:String, default:Int = 0):Int = stats.get(name).flatMap{ s => Try{ s.toInt }.toOption }.getOrElse(default)
+		def mitigation:Int = getInt("MITIGATION")
+		def burnoutInsulation:Int = getInt("BURNOUT_INSULATION")
+		def hackSpeed:Int = getInt("HACK_SPEED")
+	}
+	object Mod {
+		/** 旧フォーマットの JSON を解析 */
+		def parseOld(mods:List[JValue]):Seq[Option[Mod]] = mods.map{
+			case JObject(e) =>
+				val m = e.toMap
+				val owner = m("owner").extract[String]
+				val name = m("name").extract[String]
+				val rarity = m("rarity").extract[String]
+				val stats = m("stats") match {
+					case JObject(s) => s.map{ case (k,v) => k -> v.extract[String] }.toMap
+					case _ => Map[String,String]()
+				}
+				Some(Mod(name, owner, rarity, stats))
+			case JNull => None
+			case unexpected =>
+				logger.warn(s"unexpected mod jobject: $unexpected")
+				None
+		}
+	}
 	case class Resonator(energy:Int, level:Int, owner:String)
+	object Resonator {
+		/** 旧フォーマットの JSON を解析 */
+		def parseOld(res:List[JValue]):Seq[Resonator] = res.map{
+			case JObject(r) =>
+				val owner = r.toMap.apply("owner").extract[String]
+				val level = r.toMap.apply("level").toInt
+				val energy = r.toMap.apply("energy").toInt
+				Resonator(energy, level, owner)
+			case unexpected =>
+				logger.warn(s"unexpected resonator jobject: $unexpected")
+				Resonator(0, 0, "")
+		}
+	}
 	case class Artifact(id:String, name:String, nums:Seq[Int])
 	def apply(value:JValue):Option[PortalDetails] = value transformOpt {
 		/*
@@ -312,21 +352,8 @@ object PortalDetails {
 		value(11).toBoolean
 		val ornaments = value(12).toList.flatMap{ _.extractOpt[String] }
 		value(13).toLong
-		val mods = value(14).toList.map{ e =>
-			if(e == JNull) None else e.transformOpt {
-				val owner = e(0).extractOpt[String].get
-				val name = e(1).extractOpt[String].get
-				val rarity = e(2).extractOpt[String].get
-				val stats = e(3).toMap.map{ case (k,v) => k -> v.extract[String] }.toMap
-				Some(Mod(name, owner, rarity, stats))
-			}
-		}
-		val resonators = value(15).toList.map{ r =>
-			val owner = r(0).extractOpt[String].get
-			val level = r(1).toInt
-			val energy = r(2).toInt
-			Resonator(energy, level, owner)
-		}
+		val mods = toMods(value(14).toList)
+		val resonators = toResonators(value(15).toList)
 		val owner = value(16).extractOpt[String].get
 		val artifact = {
 			val id = value(17).apply(0).extract[String]
@@ -363,6 +390,21 @@ object PortalDetails {
 		val `type` = (value \ "type").extractOpt[String].get
 		*/
 		Some(PortalDetails(health, image, latE6, level, lngE6, mods, ornaments, owner, resCount, resonators, team, title, `type`, artifact))
+	}
+	def toMods(mods:List[JValue]) = mods.map{ e =>
+		if(e == JNull) None else e.transformOpt {
+			val owner = e(0).extractOpt[String].get
+			val name = e(1).extractOpt[String].get
+			val rarity = e(2).extractOpt[String].get
+			val stats = e(3).toMap.map{ case (k,v) => k -> v.extract[String] }.toMap
+			Some(Mod(name, owner, rarity, stats))
+		}
+	}
+	def toResonators(res:List[JValue]) = res.map{ r =>
+		val owner = r(0).extractOpt[String].get
+		val level = r(1).toInt
+		val energy = r(2).toInt
+		Resonator(energy, level, owner)
 	}
 }
 

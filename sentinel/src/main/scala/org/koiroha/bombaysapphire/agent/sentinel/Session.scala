@@ -10,7 +10,6 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.{Timer, TimerTask}
 import javafx.beans.property.{SimpleDoubleProperty, SimpleLongProperty}
-import javafx.scene.transform.Scale
 import javafx.scene.web.{WebEngine, WebView}
 
 import org.koiroha.bombaysapphire.BombaySapphire
@@ -30,13 +29,15 @@ import scala.util.{Failure, Success, Try}
  *
  * @author Takami Torao
  */
-class Session(context:Context, browser:WebView)(implicit _context:ExecutionContext){
+class Session(context:Context, browser:WebView, waypoints:Seq[WayPoint])(implicit _context:ExecutionContext){
+
+	def this(context:Context, browser:WebView)(implicit _context:ExecutionContext)
+		= this(context, browser, context.scenario.allWaypoints(context.config.screenRegion))(_context)
 
 	/**
 	 * このセッションを JavaVM ヒープ上で識別するための ID。
 	 */
 	val id = context.newSessionId
-	private[this] val scenario = context.scenario
 
 	private[this] val logger = LoggerFactory.getLogger(getClass.getName + ":" + id)
 
@@ -150,7 +151,7 @@ class Session(context:Context, browser:WebView)(implicit _context:ExecutionConte
 	/**
 	 * このセッションの実行で表示する位置またはキーワード。
 	 */
-	private[this] val points:Seq[Step] = Step.SignIn +: scenario.allWaypoints(context.config.screenRegion).map{
+	private[this] val points:Seq[Step] = Step.SignIn +: waypoints.map{
 		case FixedPoint(lat, lng) => Step.Point(lat, lng)
 		case Portal(lat, lng) => Step.Portal(lat, lng)
 		case Keyword(kwd) => Step.Keyword(kwd)
@@ -158,7 +159,7 @@ class Session(context:Context, browser:WebView)(implicit _context:ExecutionConte
 			throw new IllegalStateException()
 			Step.Noop
 	}.flatMap{ case e =>
-		Seq(e, Step.Sleep(scenario.interval.next() * 1000L))
+		Seq(e, Step.Sleep(context.scenario.interval.next() * 1000L))
 	} :+ Step.SignOut
 
 	// ==============================================================================================
@@ -224,13 +225,15 @@ class Session(context:Context, browser:WebView)(implicit _context:ExecutionConte
 			expectBrowserCallback {
 				engine.executeScript(
 					s"""document.getElementById('Email').value='${context.account.username}';
-									|document.getElementById('Passwd').value='${context.account.password}';
-									|document.getElementById('signIn').click();
-								""".stripMargin)
+						|document.getElementById('Passwd').value='${context.account.password}';
+						|document.getElementById('signIn').click();
+					""".stripMargin)
 			}.foreach { _ =>
 				// サインイン成功
 				signedIn.set(true)
-				promise.success("SIGNIN")
+				Session.setTimeout(1000){
+					promise.success("SIGNIN")
+				}
 			}
 		}
 
@@ -329,12 +332,8 @@ class Session(context:Context, browser:WebView)(implicit _context:ExecutionConte
 	 * ブラウザのズームを設定します。
 	 */
 	private[this] def zoom(d:Double):Unit = {
-		logger.debug(f"set browser zoom level: ${d*100}%.1f%%")
-		browser.getTransforms.clear()
-		browser.getTransforms.add(new Scale(d, d))
-		browser.setMaxSize(context.config.physicalScreen.width / d, context.config.physicalScreen.height / d)
-		browser.setMinSize(context.config.physicalScreen.width / d, context.config.physicalScreen.height / d)
-		browser.setPrefSize(context.config.physicalScreen.width / d, context.config.physicalScreen.height / d)
+		import org.koiroha.bombaysapphire.agent.sentinel.ui._WebView
+		browser.physicalZoom(d, context.config.physicalScreen)
 	}
 
 }

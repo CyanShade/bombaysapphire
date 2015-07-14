@@ -73,68 +73,74 @@ trait Tables {
   /** Entity class storing rows of table FarmActivities
    *  @param id Database column id DBType(serial), AutoInc, PrimaryKey
    *  @param farmId Database column farm_id DBType(int4)
+   *  @param strictPortalCount Database column strict_portal_count DBType(int4), Default(0)
    *  @param portalCount Database column portal_count DBType(int4), Default(0)
    *  @param portalCountR Database column portal_count_r DBType(int4), Default(0)
    *  @param portalCountE Database column portal_count_e DBType(int4), Default(0)
-   *  @param p8CountR Database column p8_count_r DBType(int4), Default(0)
-   *  @param p8CountE Database column p8_count_e DBType(int4), Default(0)
-   *  @param avrLevel Database column avr_level DBType(float8), Default(0.0)
-   *  @param avrLevelR Database column avr_level_r DBType(float8), Default(0.0)
-   *  @param avrLevelE Database column avr_level_e DBType(float8), Default(0.0)
-   *  @param avrResonatorR Database column avr_resonator_r DBType(float8), Default(0.0)
-   *  @param avrResonatorE Database column avr_resonator_e DBType(float8), Default(0.0)
-   *  @param avrModR Database column avr_mod_r DBType(float8), Default(0.0)
-   *  @param avrModE Database column avr_mod_e DBType(float8), Default(0.0)
-   *  @param avrShieldingR Database column avr_shielding_r DBType(float8), Default(0.0)
-   *  @param avrShieldingE Database column avr_shielding_e DBType(float8), Default(0.0)
-   *  @param hackAvail Database column hack_avail DBType(int4), Default(0)
+   *  @param p8ReachR Database column p8_reach_r DBType(int4), Default(0)
+   *  @param p8ReachE Database column p8_reach_e DBType(int4), Default(0)
+   *  @param avrResLevelR Database column avr_res_level_r DBType(float4), Default(0.0)
+   *  @param avrResLevelE Database column avr_res_level_e DBType(float4), Default(0.0)
+   *  @param avrResonatorR Database column avr_resonator_r DBType(float4), Default(0.0)
+   *  @param avrResonatorE Database column avr_resonator_e DBType(float4), Default(0.0)
+   *  @param avrModR Database column avr_mod_r DBType(float4), Default(0.0)
+   *  @param avrModE Database column avr_mod_e DBType(float4), Default(0.0)
+   *  @param avrMitigationR Database column avr_mitigation_r DBType(float4), Default(0.0)
+   *  @param avrMitigationE Database column avr_mitigation_e DBType(float4), Default(0.0)
+   *  @param avrCooldownRatio Database column avr_cooldown_ratio DBType(float4), Default(0.0)
+   *  @param additionalHack Database column additional_hack DBType(int4), Default(0)
+   *  @param measuredAt Database column measured_at DBType(timestamp)
    *  @param createdAt Database column created_at DBType(timestamp) */
-  case class FarmActivitiesRow(id: Int, farmId: Int, portalCount: Int = 0, portalCountR: Int = 0, portalCountE: Int = 0, p8CountR: Int = 0, p8CountE: Int = 0, avrLevel: Double = 0.0, avrLevelR: Double = 0.0, avrLevelE: Double = 0.0, avrResonatorR: Double = 0.0, avrResonatorE: Double = 0.0, avrModR: Double = 0.0, avrModE: Double = 0.0, avrShieldingR: Double = 0.0, avrShieldingE: Double = 0.0, hackAvail: Int = 0, createdAt: java.sql.Timestamp)
+  case class FarmActivitiesRow(id: Int, farmId: Int, strictPortalCount: Int = 0, portalCount: Int = 0, portalCountR: Int = 0, portalCountE: Int = 0, p8ReachR: Int = 0, p8ReachE: Int = 0, avrResLevelR: Float = 0.0F, avrResLevelE: Float = 0.0F, avrResonatorR: Float = 0.0F, avrResonatorE: Float = 0.0F, avrModR: Float = 0.0F, avrModE: Float = 0.0F, avrMitigationR: Float = 0.0F, avrMitigationE: Float = 0.0F, avrCooldownRatio: Float = 0.0F, additionalHack: Int = 0, measuredAt: java.sql.Timestamp, createdAt: java.sql.Timestamp)
   /** GetResult implicit for fetching FarmActivitiesRow objects using plain SQL queries */
-  implicit def GetResultFarmActivitiesRow(implicit e0: GR[Int], e1: GR[Double], e2: GR[java.sql.Timestamp]): GR[FarmActivitiesRow] = GR{
+  implicit def GetResultFarmActivitiesRow(implicit e0: GR[Int], e1: GR[Float], e2: GR[java.sql.Timestamp]): GR[FarmActivitiesRow] = GR{
     prs => import prs._
-    FarmActivitiesRow.tupled((<<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Double], <<[Int], <<[java.sql.Timestamp]))
+    FarmActivitiesRow.tupled((<<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Int], <<[Float], <<[Float], <<[Float], <<[Float], <<[Float], <<[Float], <<[Float], <<[Float], <<[Float], <<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp]))
   }
   /** Table description of table farm_activities. Objects of this class serve as prototypes for rows in queries. */
   class FarmActivities(_tableTag: Tag) extends Table[FarmActivitiesRow](_tableTag, Some("intel"), "farm_activities") {
-    def * = (id, farmId, portalCount, portalCountR, portalCountE, p8CountR, p8CountE, avrLevel, avrLevelR, avrLevelE, avrResonatorR, avrResonatorE, avrModR, avrModE, avrShieldingR, avrShieldingE, hackAvail, createdAt) <> (FarmActivitiesRow.tupled, FarmActivitiesRow.unapply)
+    def * = (id, farmId, strictPortalCount, portalCount, portalCountR, portalCountE, p8ReachR, p8ReachE, avrResLevelR, avrResLevelE, avrResonatorR, avrResonatorE, avrModR, avrModE, avrMitigationR, avrMitigationE, avrCooldownRatio, additionalHack, measuredAt, createdAt) <> (FarmActivitiesRow.tupled, FarmActivitiesRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, farmId.?, portalCount.?, portalCountR.?, portalCountE.?, p8CountR.?, p8CountE.?, avrLevel.?, avrLevelR.?, avrLevelE.?, avrResonatorR.?, avrResonatorE.?, avrModR.?, avrModE.?, avrShieldingR.?, avrShieldingE.?, hackAvail.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmActivitiesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11.get, _12.get, _13.get, _14.get, _15.get, _16.get, _17.get, _18.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, farmId.?, strictPortalCount.?, portalCount.?, portalCountR.?, portalCountE.?, p8ReachR.?, p8ReachE.?, avrResLevelR.?, avrResLevelE.?, avrResonatorR.?, avrResonatorE.?, avrModR.?, avrModE.?, avrMitigationR.?, avrMitigationE.?, avrCooldownRatio.?, additionalHack.?, measuredAt.?, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> FarmActivitiesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11.get, _12.get, _13.get, _14.get, _15.get, _16.get, _17.get, _18.get, _19.get, _20.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column farm_id DBType(int4) */
     val farmId: Column[Int] = column[Int]("farm_id")
+    /** Database column strict_portal_count DBType(int4), Default(0) */
+    val strictPortalCount: Column[Int] = column[Int]("strict_portal_count", O.Default(0))
     /** Database column portal_count DBType(int4), Default(0) */
     val portalCount: Column[Int] = column[Int]("portal_count", O.Default(0))
     /** Database column portal_count_r DBType(int4), Default(0) */
     val portalCountR: Column[Int] = column[Int]("portal_count_r", O.Default(0))
     /** Database column portal_count_e DBType(int4), Default(0) */
     val portalCountE: Column[Int] = column[Int]("portal_count_e", O.Default(0))
-    /** Database column p8_count_r DBType(int4), Default(0) */
-    val p8CountR: Column[Int] = column[Int]("p8_count_r", O.Default(0))
-    /** Database column p8_count_e DBType(int4), Default(0) */
-    val p8CountE: Column[Int] = column[Int]("p8_count_e", O.Default(0))
-    /** Database column avr_level DBType(float8), Default(0.0) */
-    val avrLevel: Column[Double] = column[Double]("avr_level", O.Default(0.0))
-    /** Database column avr_level_r DBType(float8), Default(0.0) */
-    val avrLevelR: Column[Double] = column[Double]("avr_level_r", O.Default(0.0))
-    /** Database column avr_level_e DBType(float8), Default(0.0) */
-    val avrLevelE: Column[Double] = column[Double]("avr_level_e", O.Default(0.0))
-    /** Database column avr_resonator_r DBType(float8), Default(0.0) */
-    val avrResonatorR: Column[Double] = column[Double]("avr_resonator_r", O.Default(0.0))
-    /** Database column avr_resonator_e DBType(float8), Default(0.0) */
-    val avrResonatorE: Column[Double] = column[Double]("avr_resonator_e", O.Default(0.0))
-    /** Database column avr_mod_r DBType(float8), Default(0.0) */
-    val avrModR: Column[Double] = column[Double]("avr_mod_r", O.Default(0.0))
-    /** Database column avr_mod_e DBType(float8), Default(0.0) */
-    val avrModE: Column[Double] = column[Double]("avr_mod_e", O.Default(0.0))
-    /** Database column avr_shielding_r DBType(float8), Default(0.0) */
-    val avrShieldingR: Column[Double] = column[Double]("avr_shielding_r", O.Default(0.0))
-    /** Database column avr_shielding_e DBType(float8), Default(0.0) */
-    val avrShieldingE: Column[Double] = column[Double]("avr_shielding_e", O.Default(0.0))
-    /** Database column hack_avail DBType(int4), Default(0) */
-    val hackAvail: Column[Int] = column[Int]("hack_avail", O.Default(0))
+    /** Database column p8_reach_r DBType(int4), Default(0) */
+    val p8ReachR: Column[Int] = column[Int]("p8_reach_r", O.Default(0))
+    /** Database column p8_reach_e DBType(int4), Default(0) */
+    val p8ReachE: Column[Int] = column[Int]("p8_reach_e", O.Default(0))
+    /** Database column avr_res_level_r DBType(float4), Default(0.0) */
+    val avrResLevelR: Column[Float] = column[Float]("avr_res_level_r", O.Default(0.0F))
+    /** Database column avr_res_level_e DBType(float4), Default(0.0) */
+    val avrResLevelE: Column[Float] = column[Float]("avr_res_level_e", O.Default(0.0F))
+    /** Database column avr_resonator_r DBType(float4), Default(0.0) */
+    val avrResonatorR: Column[Float] = column[Float]("avr_resonator_r", O.Default(0.0F))
+    /** Database column avr_resonator_e DBType(float4), Default(0.0) */
+    val avrResonatorE: Column[Float] = column[Float]("avr_resonator_e", O.Default(0.0F))
+    /** Database column avr_mod_r DBType(float4), Default(0.0) */
+    val avrModR: Column[Float] = column[Float]("avr_mod_r", O.Default(0.0F))
+    /** Database column avr_mod_e DBType(float4), Default(0.0) */
+    val avrModE: Column[Float] = column[Float]("avr_mod_e", O.Default(0.0F))
+    /** Database column avr_mitigation_r DBType(float4), Default(0.0) */
+    val avrMitigationR: Column[Float] = column[Float]("avr_mitigation_r", O.Default(0.0F))
+    /** Database column avr_mitigation_e DBType(float4), Default(0.0) */
+    val avrMitigationE: Column[Float] = column[Float]("avr_mitigation_e", O.Default(0.0F))
+    /** Database column avr_cooldown_ratio DBType(float4), Default(0.0) */
+    val avrCooldownRatio: Column[Float] = column[Float]("avr_cooldown_ratio", O.Default(0.0F))
+    /** Database column additional_hack DBType(int4), Default(0) */
+    val additionalHack: Column[Int] = column[Int]("additional_hack", O.Default(0))
+    /** Database column measured_at DBType(timestamp) */
+    val measuredAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("measured_at")
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
     
@@ -559,18 +565,19 @@ trait Tables {
    *  @param resCount Database column res_count DBType(int2)
    *  @param resonators Database column resonators DBType(jsonb), Length(2147483647,false), Default(None)
    *  @param mods Database column mods DBType(jsonb), Length(2147483647,false), Default(None)
-   *  @param createdAt Database column created_at DBType(timestamp) */
-  case class PortalStateLogsRow(id: Int, portalId: Int, owner: Option[String] = None, level: Short, health: Short, team: String, mitigation: Option[Short] = None, resCount: Short, resonators: Option[String] = None, mods: Option[String] = None, createdAt: java.sql.Timestamp)
+   *  @param createdAt Database column created_at DBType(timestamp)
+   *  @param artifact Database column artifact DBType(jsonb), Length(2147483647,false), Default(None) */
+  case class PortalStateLogsRow(id: Int, portalId: Int, owner: Option[String] = None, level: Short, health: Short, team: String, mitigation: Option[Short] = None, resCount: Short, resonators: Option[String] = None, mods: Option[String] = None, createdAt: java.sql.Timestamp, artifact: Option[String] = None)
   /** GetResult implicit for fetching PortalStateLogsRow objects using plain SQL queries */
   implicit def GetResultPortalStateLogsRow(implicit e0: GR[Int], e1: GR[Option[String]], e2: GR[Short], e3: GR[String], e4: GR[Option[Short]], e5: GR[java.sql.Timestamp]): GR[PortalStateLogsRow] = GR{
     prs => import prs._
-    PortalStateLogsRow.tupled((<<[Int], <<[Int], <<?[String], <<[Short], <<[Short], <<[String], <<?[Short], <<[Short], <<?[String], <<?[String], <<[java.sql.Timestamp]))
+    PortalStateLogsRow.tupled((<<[Int], <<[Int], <<?[String], <<[Short], <<[Short], <<[String], <<?[Short], <<[Short], <<?[String], <<?[String], <<[java.sql.Timestamp], <<?[String]))
   }
   /** Table description of table portal_state_logs. Objects of this class serve as prototypes for rows in queries. */
   class PortalStateLogs(_tableTag: Tag) extends Table[PortalStateLogsRow](_tableTag, Some("intel"), "portal_state_logs") {
-    def * = (id, portalId, owner, level, health, team, mitigation, resCount, resonators, mods, createdAt) <> (PortalStateLogsRow.tupled, PortalStateLogsRow.unapply)
+    def * = (id, portalId, owner, level, health, team, mitigation, resCount, resonators, mods, createdAt, artifact) <> (PortalStateLogsRow.tupled, PortalStateLogsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (id.?, portalId.?, owner, level.?, health.?, team.?, mitigation, resCount.?, resonators, mods, createdAt.?).shaped.<>({r=>import r._; _1.map(_=> PortalStateLogsRow.tupled((_1.get, _2.get, _3, _4.get, _5.get, _6.get, _7, _8.get, _9, _10, _11.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (id.?, portalId.?, owner, level.?, health.?, team.?, mitigation, resCount.?, resonators, mods, createdAt.?, artifact).shaped.<>({r=>import r._; _1.map(_=> PortalStateLogsRow.tupled((_1.get, _2.get, _3, _4.get, _5.get, _6.get, _7, _8.get, _9, _10, _11.get, _12)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
     
     /** Database column id DBType(serial), AutoInc, PrimaryKey */
     val id: Column[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -594,6 +601,8 @@ trait Tables {
     val mods: Column[Option[String]] = column[Option[String]]("mods", O.Length(2147483647,varying=false), O.Default(None))
     /** Database column created_at DBType(timestamp) */
     val createdAt: Column[java.sql.Timestamp] = column[java.sql.Timestamp]("created_at")
+    /** Database column artifact DBType(jsonb), Length(2147483647,false), Default(None) */
+    val artifact: Column[Option[String]] = column[Option[String]]("artifact", O.Length(2147483647,varying=false), O.Default(None))
     
     /** Foreign key referencing Portals (database name portal_state_logs_portal_id_fkey) */
     lazy val portalsFk = foreignKey("portal_state_logs_portal_id_fkey", portalId, Portals)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.Cascade)

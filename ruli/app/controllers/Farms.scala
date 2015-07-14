@@ -3,8 +3,10 @@ package controllers
 import java.io.File
 import java.net.URL
 import java.sql.Timestamp
+import java.util.Date
 
 import models.Tables
+import models.farms.{Description, FFaction, Faction}
 import org.koiroha.bombaysapphire._
 import org.slf4j.LoggerFactory
 import play.api.Play.current
@@ -50,8 +52,25 @@ object Farms extends Controller {
     implicit val _session = rs.dbSession
     Tables.Farms.filter{ _.id === id }.firstOption match {
       case Some(f) =>
-        val portals = Tables.FarmPortals.filter{ _.farmId === f.id }.length.run
-        Ok(views.html.farm(models.farms.Description(f.id, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.formattedDescription, portals)))
+        val desc = f.latestActivity match {
+          case Some(activityId) =>
+            val p = Tables.FarmActivities.filter{ _.id === activityId }.first
+            Description(
+              f.id, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.formattedDescription,
+              p.strictPortalCount, p.portalCount, Faction(p.portalCountR, p.portalCountE),
+              Faction(p.p8ReachR, p.p8ReachE), FFaction(p.avrResLevelR, p.avrResLevelE),
+              FFaction(p.avrResonatorR, p.avrResonatorE), FFaction(p.avrModR, p.avrModE),
+              FFaction(p.avrMitigationR, p.avrMitigationE), p.avrCooldownRatio, p.additionalHack,
+              p.measuredAt
+            )
+          case None =>
+            Description(
+              f.id, f.name, f.address, f.externalKmlUrl.getOrElse(""), f.formattedDescription,
+              0, 0, Faction(0, 0), Faction(0, 0), FFaction(0, 0), FFaction(0, 0),
+              FFaction(0, 0), FFaction(0, 0), Float.NaN, 0, new Date()
+            )
+        }
+        Ok(views.html.farm(desc))
       case None => NotFound
     }
   }

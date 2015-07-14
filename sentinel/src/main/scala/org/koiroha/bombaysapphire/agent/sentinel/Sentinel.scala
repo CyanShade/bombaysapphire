@@ -49,7 +49,7 @@ class Sentinel extends Application  {
 
 		// 設定ファイルを参照
 		val file = new File(getParameters.getUnnamed.toList match {
-			case f :: rest => f
+			case f :: rest => new File(f).getCanonicalPath
 			case Nil => s"${System.getProperty("user.home")}${File.separator}sentinel.xml"
 		})
 		logger.debug(s"initializing sentinel by application conf: $file")

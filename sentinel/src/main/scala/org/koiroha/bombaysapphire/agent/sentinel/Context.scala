@@ -44,7 +44,7 @@ class Context(val file:File) {
 			s"""<?xml version="1.0" encoding="UTF-8"?>
 			|<sentinel>
 			|<config>
-			|<param name="default-url" value="http://${BombaySapphire.RemoteHost}/events"/>
+			|<param name="default-url" value="http://${BombaySapphire.RemoteHost}/intel?z=17"/>
 			|<param name="user-agent" value="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 (Parasitized)"/>
 			|</config>
 			|<account/>

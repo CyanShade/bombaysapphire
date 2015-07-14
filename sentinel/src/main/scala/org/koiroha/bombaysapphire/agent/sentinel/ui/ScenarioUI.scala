@@ -101,7 +101,7 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 		val center = new GridPane()
 		center.setHgap(4)
 		center.add(wrapper, 0, 0)
-		center.add(settings, 1, 0)git
+		center.add(settings, 1, 0)
 
 		val main = new BorderPane()
 		main.setTop(top)
@@ -113,6 +113,7 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 		browser.setMinSize(config.physicalScreen.width, config.physicalScreen.height)
 		browser.setPrefSize(config.physicalScreen.width, config.physicalScreen.height)
 		browser.setMaxSize(config.physicalScreen.width, config.physicalScreen.height)
+		browser.physicalZoom(0.66, context.config.physicalScreen)
 		browser.getEngine.load(context.config.defaultUrl)
 		browser.getEngine.locationProperty().addListener({ (oldValue:String, newValue:String) =>
 			url.setText(newValue)
@@ -148,13 +149,21 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 	}
 
 	/**
+	 * シナリオ実行用に全てのコントロールを非活性化。
+	 */
+	private[this] def stop():Unit = fx{
+		logger.info(s"シナリオを停止します")
+		_session.foreach{ _.stop() }
+		_session = None
+	}
+
+	/**
 	 * シナリオの実行。
 	 */
 	private[this] def execute():Unit = _session match {
 		case Some(s) =>
-			logger.info(s"シナリオを停止します")
-			s.stop()
-			_session = None
+			// ボタン等の状態変更は Session からのコールバック時に行う
+			stop()
 		case None =>
 			logger.info(s"シナリオを開始します")
 			import org.koiroha.bombaysapphire.agent.sentinel.ui._
@@ -172,14 +181,19 @@ class ScenarioUI(context:Context, stage:Stage) extends Pane {
 					} else {
 						val term = newValue.longValue()
 						val left = term - System.currentTimeMillis()
-						f"残り約${left/60/1000}%,d分 ($term%tp$term%tl:$term%tM頃)"
+						val day = left / 24 / 60 / 60 / 1000
+						val hour = (left / 60 / 60 / 1000) % 24
+						val min = (left / 60 / 1000) % 60
+						f"残り約${if(day>0){s"${day}日 "} else ""}${if(day>0||hour>0){s"${hour}時間"} else ""}${min}分 ($term%tp$term%tl:$term%tM頃)"
 					}
 					progress.setText(tip)
 				}})
 				s.start().onComplete{
 				case Success(_) =>
+					stop()
 					setInputDisabled(false)
 				case Failure(ex) =>
+					stop()
 					setInputDisabled(false)
 			} }
 	}

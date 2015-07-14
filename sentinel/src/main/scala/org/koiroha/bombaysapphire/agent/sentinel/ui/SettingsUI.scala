@@ -36,6 +36,9 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 	/** パスワード入力フィールド */
 	val password = new PasswordField()
 
+	/** サインイン/サインアウトボタン */
+	val signIn = new Button()
+
 	/** 巡回点入力フィールド */
 	val waypoints = new TextArea()
 
@@ -177,6 +180,22 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		settings.add(new Label("Password"), 0, 2)
 		settings.add(password, 0, 3)
 
+		signIn.setText("Sign In")
+		settings.add(signIn, 0, 4)
+		/*
+		signIn.setOnAction({ e:ActionEvent =>
+		})
+		*/
+
+		val tab1 = new Tab()
+		tab1.setText("認証")
+		tab1.setClosable(false)
+		tab1.setContent(settings.withAnchor(4.0, 4.0, 0.0, 0.0))
+
+		val batch = new GridPane()
+		batch.setHgap(4)
+		batch.setVgap(4)
+
 		waypoints.setWrapText(false)
 		waypoints.setPromptText("portal:緯度,経度\npoint:緯度,経度\nkeyword:キーワード\nfile:kmlファイル.kml\n:矩形")
 		waypoints.setPrefColumnCount(20)
@@ -185,25 +204,16 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 			t => context.scenario.waypoints = t.split("\n+").filterNot{ _.isEmpty }.flatMap{ ws => WayPoint.parse(ws)})
 		waypoints.textProperty().addListener({(o:String,n:String) => statusProperty.update() })
 
-		settings.add(new Label("Waypoints"), 0, 4)
-		settings.add(waypoints, 0, 5)
+		batch.add(new Label("Waypoints"), 0, 0)
+		batch.add(waypoints, 0, 1)
 
-		settings.add(new Label("移動間隔"), 0, 6)
-		settings.add(interval, 0, 7)
+		batch.add(new Label("移動間隔"), 0, 2)
+		batch.add(interval, 0, 3)
 
-		val tab1 = new Tab()
-		tab1.setText("哨戒")
-		tab1.setClosable(false)
-		tab1.setContent(settings.withAnchor(4.0, 4.0, 0.0, 0.0))
-
-		val batch = new GridPane()
-		batch.setHgap(4)
-		batch.setVgap(4)
-
-		batch.add(schedule, 0, 0)
+		batch.add(schedule, 0, 4)
 
 		val tab2 = new Tab()
-		tab2.setText("自動")
+		tab2.setText("哨戒")
 		tab2.setClosable(false)
 		tab2.setContent(batch.withAnchor(4.0, 4.0, 0.0, 0.0))
 		tab2.setOnSelectionChanged({ e:Event =>
@@ -218,6 +228,12 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 		tab3.setContent(destinations.withAnchor(4.0, 4.0, 0.0, 0.0))
 
 		this.getTabs.addAll(tab1, tab2, tab3)
+	}
+
+	/**
+	 * 入力内容を確認して実行ボタンの活性/非活性を制御。
+	 */
+	def signInSignOut():Unit = {
 	}
 
 	/**
