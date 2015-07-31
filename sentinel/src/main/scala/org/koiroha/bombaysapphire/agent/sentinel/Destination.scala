@@ -5,7 +5,7 @@
 */
 package org.koiroha.bombaysapphire.agent.sentinel
 
-import java.io.{File, FileOutputStream, IOException}
+import java.io._
 import java.net._
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -33,6 +33,8 @@ sealed abstract class Destination(elem:Element) {
 	def enabled_=(e:Boolean) = elem.attr("enabled", e.toString)
 	def uri:URI = URI.create(elem.attr("uri"))
 	def uri_=(u:URI) = elem.attr("uri", u.toString)
+	def `type`:String
+	def text:String
 	def store(method:String, request:String, response:String, tm:Long):Unit
 	def drop():Unit = elem.getParentNode.removeChild(elem)
 }
@@ -68,6 +70,8 @@ class GarudaAPI(elem:Element) extends Destination(elem) {
 
 	def urlPrefix:String = uri.getSchemeSpecificPart
 	def urlPrefix_=(value:String) = uri = URI.create(GarudaAPI.Scheme + ":" + value)
+	def `type`:String = "garuda"
+	def text:String = urlPrefix
 
 	/** 哨戒情報の保存 */
 	def store(method:String, request:String, response:String, tm:Long) = scala.concurrent.Future {
@@ -127,16 +131,22 @@ object GarudaAPI {
  * @author Takami Torao
  */
 class LocalFile(elem:Element) extends Destination(elem) {
-	def filename:String = new File(uri).getAbsolutePath
+	def filename:String = new File(uri).getCanonicalPath
 	def filename_=(value:String) = uri = new File(value).toURI
+	def `type`:String = "file"
+	def text:String = filename
 
-	def store(method:String, request:String, response:String, tm:Long) = using(new FileOutputStream(filename, true)){ out =>
-		val channel = out.getChannel
+	def store(method:String, request:String, response:String, tm:Long) = using(new FileOutputStream(filename, true)){ os =>
+		val channel = os.getChannel
 		val lock = channel.lock()
+		val out = new PrintWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8))
 		try {
-			out.write(request.getBytes(StandardCharsets.UTF_8))
-			out.write(response.getBytes(StandardCharsets.UTF_8))
+			out.println(f"=== $tm%tF $tm%tT.$tm%tL $tm%tZ $method")
+			out.println(request)
+			out.println("---")
+			out.println(response)
 		} finally {
+			out.flush()
 			lock.release()
 		}
 	}

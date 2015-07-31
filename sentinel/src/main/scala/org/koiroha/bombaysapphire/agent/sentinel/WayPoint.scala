@@ -6,11 +6,10 @@
 package org.koiroha.bombaysapphire.agent.sentinel
 
 import java.io.File
-import java.net.{URI, URL}
+import java.net.URI
 
-import org.koiroha.bombaysapphire.BombaySapphire
-import org.koiroha.bombaysapphire._
-import org.koiroha.bombaysapphire.geom.Region
+import org.koiroha.bombaysapphire.{BombaySapphire, _}
+import org.koiroha.bombaysapphire.geom.{Dimension, Region}
 import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Success, Try}
@@ -52,14 +51,16 @@ object WayPoint {
 }
 
 sealed abstract class Area extends WayPoint {
-	def toWayPoints(distance:Double):Seq[WayPoint]
+	def toWayPoints(unit:Dimension):Seq[WayPoint]
 }
 object Area {
-	def grids(north:Double, east:Double, south:Double, west:Double, distance:Double):Seq[FixedPoint] = {
+	import org.koiroha.bombaysapphire.BombaySapphire._
+	def grids(north:Double, east:Double, south:Double, west:Double, unit:Dimension):Seq[FixedPoint] = {
+		val Dimension(lngKM, latKM) = unit
 		for{
-			y <- 0 until ((south - north - BombaySapphire.latUnit    * distance / 2) / BombaySapphire.latUnit    * distance).toInt
-			x <- 0 until ((east  - west  - BombaySapphire.lngUnit(y) * distance / 2) / BombaySapphire.lngUnit(y) * distance).toInt
-		} yield FixedPoint(y, x)
+			lat <- (south + latUnit      * latKM / 2) to (north + latUnit      * latKM / 2) by (latUnit      * latKM)
+			lng <- (west  + lngUnit(lat) * lngKM / 2) to (east  + lngUnit(lat) * lngKM / 2) by (lngUnit(lat) * lngKM)
+		} yield FixedPoint(lat, lng)
 	}
 }
 
@@ -96,12 +97,14 @@ case class KML(url:String) extends Area {
 			case Failure(ex) => K.toRegion(new File(url))
 		}
 	}
-	def toWayPoints(distance:Double):Seq[WayPoint] = {
+	def toWayPoints(unit:Dimension):Seq[WayPoint] = {
+		val Dimension(lngKM, latKM) = unit
 		regions.flatMap{ r =>
 			val rect = r.rectangle
-			Area.grids(rect.north, rect.east, rect.south, rect.west, distance).filter{ p =>
-				val dlat2 = BombaySapphire.latUnit * distance / 2
-				val dlng2 = BombaySapphire.lngUnit(p.lat) / 2
+			val g = Area.grids(rect.north, rect.east, rect.south, rect.west, unit)
+			g.filter{ p =>
+				val dlat2 = BombaySapphire.latUnit * latKM / 2
+				val dlng2 = BombaySapphire.lngUnit(p.lat) * lngKM / 2
 				r.intersects(geom.Rectangle(p.lat + dlat2, p.lng + dlng2, p.lat - dlat2, p.lng - dlng2))
 			}
 		}
@@ -111,5 +114,5 @@ case class KML(url:String) extends Area {
 /** 矩形が示す領域 */
 case class Rectangle(north:Double, east:Double, south:Double, west:Double) extends Area {
 	override def toString = s"rect:$north,$east,$south,$west"
-	def toWayPoints(distance:Double):Seq[WayPoint] = Area.grids(north, east, south, west, distance)
+	def toWayPoints(unit:Dimension):Seq[WayPoint] = Area.grids(north, east, south, west, unit)
 }

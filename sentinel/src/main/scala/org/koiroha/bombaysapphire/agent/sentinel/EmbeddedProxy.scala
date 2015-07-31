@@ -124,9 +124,9 @@ private abstract class EmbeddedProxy {
       .tls(crt.toString, key.toString)
       .build(ProxyService))
   }
-  logger.info(s"bombay-sapphire proxy listening on port http=${http.localAddress}/https=${https.localAddress}")
+  logger.info(s"bombay-sapphire proxy listening on port http=${http.boundAddress}/https=${https.boundAddress}")
 
-  def httpsPort = https.localAddress.asInstanceOf[InetSocketAddress].getPort
+  def httpsPort = https.boundAddress.asInstanceOf[InetSocketAddress].getPort
 
   def close():Unit = {
     http.close()

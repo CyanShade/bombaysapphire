@@ -3,21 +3,27 @@
  * All sources and related resources are available under Apache License 2.0.
  * http://www.apache.org/licenses/LICENSE-2.0.html
 */
-package org.koiroha.bombaysapphire.agent.sentinel
+package org.koiroha.bombaysapphire.garuda.batch
 
-import javafx.scene.web.WebEngine
+import java.io.File
 
-import org.koiroha.bombaysapphire.geom.LatLng
+import org.koiroha.bombaysapphire.garuda.Context
+import org.slf4j.LoggerFactory
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// Intel
+// Batch
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /**
  * @author Takami Torao
  */
-class Intel(val engine:WebEngine, val userid:String, val password:String) {
-	def show(position:LatLng):Unit = {
+object Batch extends App {
+	private[Batch] val logger = LoggerFactory.getLogger(getClass.getName.dropRight(1))
 
+	val context = Context(new File(args.head))
+
+	args(1) match {
+		case "farm:activities" => Farms.activities(context)
 	}
 
 }
+

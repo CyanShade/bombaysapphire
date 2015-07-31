@@ -8,7 +8,7 @@ package org.koiroha.bombaysapphire.agent.sentinel
 import java.util.concurrent.atomic.AtomicReference
 
 import org.koiroha.bombaysapphire.agent.sentinel.xml._
-import org.w3c.dom.{Document, Element}
+import org.w3c.dom.Element
 
 import scala.annotation.tailrec
 
@@ -25,8 +25,6 @@ class Account(elem:Element){
 
 	def password:String = elem.attr("password").trim
 	def password_=(value:String) = elem.attr("password", value)
-
-	def drop():Unit = elem.getParentNode.removeChild(elem)
 
 	private[this] val _used = new AtomicReference(elem.attr("used-at").split("\\s*,\\s*").map{ _.trim() }.filterNot{ _.isEmpty }.map{ _.toLong }.toList)
 
@@ -94,12 +92,5 @@ object Account {
 	val UsedLimitCount = 100
 	/** 使用回数制限の期間 */
 	val UsedLimitTerm = 1 * 24 * 60 * 60 * 1000L
-
-	def create(doc:Document, username:String, password:String) = {
-		val account = doc.createElement("account")
-		account.attr("username", username)
-		account.attr("password", password)
-		account
-	}
 
 }

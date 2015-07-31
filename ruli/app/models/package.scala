@@ -5,12 +5,24 @@
 */
 package models
 
+import java.util.Date
+
 import org.markdown4j.Markdown4jProcessor
 
 package object farms {
+	case class Faction(r:Int, e:Int)
+	case class FFaction(r:Float, e:Float)
+
 	case class Summary(id:Int, name:String, address:String, description:String)
-	case class Description(id:Int, name:String, address:String, kml:String, description:String,
-	                       portals:Int)
+	case class Description(
+		id:Int, name:String, address:String, kml:String, description:String,
+	  strictPortals:Int, measuredPortals:Int, portals:Faction, p8Reach:Faction,
+	  level:FFaction, resonators:FFaction, mods:FFaction, mitigation:FFaction,
+	  cooldownRatio:Float, additionalHack:Int,
+	  measuredAt:Date
+	){
+		def totalLevel = ((level.r * portals.r) + (level.e * portals.e)) / measuredPortals
+	}
 	case class Edit(
 		id:Int, parent:Option[Int], name:String, address:String, kml:String, description:String)
 	object Edit {

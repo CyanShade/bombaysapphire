@@ -38,6 +38,8 @@ package object geom {
 		def rectangle: Rectangle
 	}
 
+	case class Dimension(width:Double, height:Double)
+
 	case class Polygon(points: Seq[LatLng]) extends Shape {
 		assert(points.size >= 3)
 		/** (lat,lng) の多角形 */
@@ -107,6 +109,7 @@ package object geom {
 }
 
 package object func {
+	import scala.language.implicitConversions
 	implicit def _f2Consumer[T](f:T=>Unit):java.util.function.Consumer[T] = new function.Consumer[T]{
 		override def accept(t:T):Unit = f(t)
 	}

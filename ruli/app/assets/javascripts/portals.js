@@ -280,6 +280,10 @@ $(function(){
     window.location = "/api/1.0/portals.kml?" + query;
   });
 
+  $("#regexport").click(function(){
+    $("#regexport_modal").modal();
+  });
+
   $("#mapsync").click(function(){
     gmap.mapSync(! $("#mapsync").hasClass("active"));
   });

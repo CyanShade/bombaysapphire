@@ -14,6 +14,7 @@ import javax.xml.xpath.{XPathConstants, XPathFactory}
 import org.w3c.dom._
 
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 package object xml {
 	implicit def _NodeList2List(nl:NodeList):Seq[Node] = for(i <- 0 until nl.getLength) yield nl.item(i)
@@ -50,6 +51,7 @@ package object xml {
 		def text_=(value:String):Unit = elem.clear().appendChild(elem.getOwnerDocument.createTextNode(value))
 		def attr(name:String):String = elem.getAttribute(name)
 		def attr(name:String, value:String):Unit = elem.setAttribute(name, value)
+		def hasAttr(name:String):Boolean = elem.hasAttribute(name)
 		def <<(e:Node):Element = {
 			elem.appendChild(e)
 			elem

@@ -46,6 +46,7 @@
     <div class="col-md-4">
       <small><span id="portal_count">0</span> Portals</small>
       <button id="download" class="btn btn-default btn-xs">Download KML</button>
+      <button id="regexport" class="btn btn-default btn-xs" data-toggle="modal" data-target="#regexport_dialog">Region Export</button>
     </div>
   </div>
   <div class="row">
@@ -131,4 +132,26 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="regexport_modal" tabindex="-1" role="dialog" aria-labelledby="regexport_modal_label">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="regexport_modal_label">Regional Export</h4>
+      </div>
+      <div class="modal-body">
+        <form action="">
+
+        </form>
+        ...
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary">Export</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 }
