@@ -1,18 +1,18 @@
 
-organization := "org.koiroha.bombaysapphire"
+organization := "org.koiroha"
 
-name := "garuda"
+name := "bombaysapphire-garuda"
 
 version := "1.0.0-SNAPSHOT"
 
-scalaVersion := "2.11.4"
+scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq("-unchecked", "-feature", "-deprecation", "-encoding", "UTF-8")
 
 javacOptions ++= Seq("-encoding", "UTF-8", "-source", "1.8", "-target", "1.8")
 
 libraryDependencies ++= Seq(
-  "org.koiroha.bombaysapphire" %% "share" % "1.0.0-SNAPSHOT",
+  "org.koiroha" %% "bombaysapphire-share" % "1.0.0-SNAPSHOT",
   "com.twitter" %% "finagle-http" % "6.+",
   "com.typesafe.slick" %% "slick" % "2.1.+",
   "com.typesafe.slick" %% "slick-codegen" % "2.1.+",

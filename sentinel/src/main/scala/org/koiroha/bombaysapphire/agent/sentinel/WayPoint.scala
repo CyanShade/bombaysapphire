@@ -6,10 +6,9 @@
 package org.koiroha.bombaysapphire.agent.sentinel
 
 import java.io.File
-import java.net.{URI, URL}
+import java.net.URI
 
-import org.koiroha.bombaysapphire.BombaySapphire
-import org.koiroha.bombaysapphire._
+import org.koiroha.bombaysapphire.{BombaySapphire, _}
 import org.koiroha.bombaysapphire.geom.{Dimension, Region}
 import org.slf4j.LoggerFactory
 
@@ -55,7 +54,7 @@ sealed abstract class Area extends WayPoint {
 	def toWayPoints(unit:Dimension):Seq[WayPoint]
 }
 object Area {
-	import BombaySapphire._
+	import org.koiroha.bombaysapphire.BombaySapphire._
 	def grids(north:Double, east:Double, south:Double, west:Double, unit:Dimension):Seq[FixedPoint] = {
 		val Dimension(lngKM, latKM) = unit
 		for{

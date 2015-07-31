@@ -94,9 +94,9 @@ object Portals extends Controller {
       "Cache-Control" -> "no-cache"
     )
 
-    val limit = query.get("limit").map{ _.toInt }.getOrElse(4000)
+    val limit = query.get("limit").map {_.toInt}.getOrElse(4000)
+    val portals = search(query.-("dl", "limit"), limit)
 
-    val portals = search(query.-("dl", "limit"), limit).filterNot{ p => p.team == "E" && p.guardian >= 60 * 24 * 60 * 60 * 1000L }
     fmt.toLowerCase match {
       case "json" =>
         Ok(Json.toJson(portals.map { case p =>
@@ -114,6 +114,13 @@ object Portals extends Controller {
             "created_at" -> df.format(p.createdAt)
           )
         }.toSeq)).withHeaders(additionalHeaders:_*)
+      case "cvs" =>
+        def c(s:String):String = "\"" + s.replace("\"", "\"\"") + "\""
+        def i(i:AnyVal):String = i.toString
+        val csv = portals.map { case p =>
+          s"${i(p.id)},${c(p.title)},${c(p.image)},${c(p.country.getOrElse(""))},${c(p.state.getOrElse(""))},${c(p.city.getOrElse(""))},${i(p.latE6/1e6)},${i(p.lngE6/1e6)},${c(p.team)},${i(p.level)},${i(p.guardian)},${c(df.format(p.createdAt))}"
+        }.mkString("\n")
+        Ok(csv).withHeaders(additionalHeaders:_*).as("text/csv")
       case "kml" =>
         // <?xml version="1.0" encoding="UTF-8"?>
         // <kml xmlns="http://www.opengis.net/kml/2.2">

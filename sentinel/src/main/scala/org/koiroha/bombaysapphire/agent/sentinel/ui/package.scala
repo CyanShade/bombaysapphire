@@ -15,6 +15,7 @@ import org.koiroha.bombaysapphire.geom.Dimension
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Promise, Future}
+import scala.language.implicitConversions
 
 package object ui {
 	private val logger = LoggerFactory.getLogger(this.getClass.getName.dropRight(1))

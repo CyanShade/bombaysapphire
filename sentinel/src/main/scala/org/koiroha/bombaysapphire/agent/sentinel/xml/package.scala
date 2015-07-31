@@ -14,6 +14,7 @@ import javax.xml.xpath.{XPathConstants, XPathFactory}
 import org.w3c.dom._
 
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 package object xml {
 	implicit def _NodeList2List(nl:NodeList):Seq[Node] = for(i <- 0 until nl.getLength) yield nl.item(i)

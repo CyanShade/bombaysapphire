@@ -13,6 +13,7 @@ GET     /portal/eventlogs           controllers.Portals.eventlogs
 GET     /api/1.0/portal/:id         controllers.Portals.portal(id:Int)
 GET     /api/1.0/portals            controllers.Portals.portals(fmt:String ?= "json")
 GET     /api/1.0/portals.:fmt       controllers.Portals.portals(fmt)
+POST    /api/1.0/portals.:fmt       controllers.Portals.portals(fmt)
 
 # ファーム一覧
 GET     /farms                      controllers.Farms.index

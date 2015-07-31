@@ -109,6 +109,7 @@ package object geom {
 }
 
 package object func {
+	import scala.language.implicitConversions
 	implicit def _f2Consumer[T](f:T=>Unit):java.util.function.Consumer[T] = new function.Consumer[T]{
 		override def accept(t:T):Unit = f(t)
 	}

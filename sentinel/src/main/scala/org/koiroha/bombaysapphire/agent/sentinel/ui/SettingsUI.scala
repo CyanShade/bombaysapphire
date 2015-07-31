@@ -20,6 +20,7 @@ import javafx.util.Callback
 
 import org.koiroha.bombaysapphire.agent.sentinel._
 import org.slf4j.LoggerFactory
+import scala.language.implicitConversions
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // SettingsUI
@@ -34,7 +35,7 @@ class SettingsUI(context:Context, status:StringProperty) extends TabPane {
 	val username = new TextField()
 
 	/** パスワード入力フィールド */
-	val password = new PasswordField()
+	val password = new TextField()
 
 	/** サインイン/サインアウトボタン */
 	val signIn = new Button()

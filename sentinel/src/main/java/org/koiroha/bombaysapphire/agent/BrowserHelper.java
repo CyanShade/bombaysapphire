@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 
 public class BrowserHelper {
     public static void init(WebEngine engine, Consumer<WebEngine> succeeder){
-        Logger logger = Sentinel$.MODULE$.logger();
+        Logger logger = org.koiroha.bombaysapphire.agent.sentinel.Sentinel$.MODULE$.logger();
         engine.getLoadWorker().stateProperty().addListener(new ChangeListener<Worker.State>(){
             @Override
             public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldValue, Worker.State newValue) {

@@ -1,11 +1,11 @@
 
-organization := "org.koiroha.bombaysapphire"
+organization := "org.koiroha"
 
-name := "sentinel"
+name := "bombaysapphire-sentinel"
 
 version := "1.0.0-SNAPSHOT"
 
-scalaVersion := "2.11.4"
+scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq("-unchecked", "-feature", "-deprecation", "-encoding", "UTF-8")
 

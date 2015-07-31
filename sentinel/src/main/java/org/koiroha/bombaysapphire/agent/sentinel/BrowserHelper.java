@@ -4,7 +4,6 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
 import javafx.scene.web.WebEngine;
-import org.koiroha.bombaysapphire.agent.Sentinel$;
 import org.slf4j.Logger;
 
 public class BrowserHelper {

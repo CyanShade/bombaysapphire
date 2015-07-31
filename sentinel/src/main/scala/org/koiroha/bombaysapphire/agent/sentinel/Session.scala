@@ -8,7 +8,7 @@ package org.koiroha.bombaysapphire.agent.sentinel
 import java.util
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.{Timer, TimerTask}
+import java.util.{ConcurrentModificationException, Timer, TimerTask}
 import javafx.beans.property.{SimpleDoubleProperty, SimpleLongProperty}
 import javafx.scene.web.{WebEngine, WebView}
 
@@ -59,7 +59,7 @@ class Session(context:Context, browser:WebView, waypoints:Seq[WayPoint])(implici
 			leastExec = System.currentTimeMillis()
 			update()
 		}
-		def update():Unit = {
+		def update():Unit = try {
 			val diff = math.min(context.scenario.interval.average.toInt * 1000, System.currentTimeMillis() - leastExec)
 			val total = points.map{ _.interval }.sum
 			val left = playScript.map{ _.interval }.sum - diff
@@ -68,6 +68,8 @@ class Session(context:Context, browser:WebView, waypoints:Seq[WayPoint])(implici
 			this.setValue(current)
 			terminationProperty.set(System.currentTimeMillis() + left)
 			// logger.debug(f"session progressing ${current * 100}%.1f%%")
+		} catch {
+			case ex:ConcurrentModificationException => None
 		}
 	}
 
@@ -207,16 +209,31 @@ class Session(context:Context, browser:WebView, waypoints:Seq[WayPoint])(implici
 		//  このIDはIntelへのリクエスト時には削除される
 		engine.setUserAgent(s"${context.config.userAgent} #$id:${context.account.username}")
 
+		// サインイン成功
+		def succeed() = ui.fx {
+			signedIn.set(true)
+			Session.setTimeout(1000){
+				promise.success("SIGNIN")
+			}
+		}
+
 		// Step2: <a>Sign In</a> をクリックする
 		def step2() = ui.fx {
 			val links = engine.getDocument.getElementsByTagName("a").map{ _.asInstanceOf[Element] }
 			links.find { _.text.trim.toLowerCase == "sign in"} match {
 				case Some(a) =>
-					show(a.getAttribute("href")).foreach { _ => step3() }
+					logger.info(s"ステップ2: 初期ページ表示")
+					show(a.getAttribute("href")).foreach { _ => step3()}
 				case None =>
-					logger.error(s"all <a> elements: ${links.map{ _.text }.mkString(",") }")
-					engine.getDocument.dump()
-					promise.failure(new IllegalStateException("初期ページに SignIn ボタンが存在しません"))
+					links.find {_.text.trim.toLowerCase == "sign out"} match {
+						case Some(_) =>
+							logger.info(s"既にログインしています")
+							succeed()
+						case None =>
+							logger.error(s"all <a> elements: ${links.map{ _.text }.mkString(",") }")
+							engine.getDocument.dump()
+							promise.failure(new IllegalStateException("初期ページに SignIn ボタンが存在しません"))
+					}
 			}
 		}
 
@@ -225,19 +242,18 @@ class Session(context:Context, browser:WebView, waypoints:Seq[WayPoint])(implici
 			expectBrowserCallback {
 				engine.executeScript(
 					s"""document.getElementById('Email').value='${context.account.username}';
-						|document.getElementById('Passwd').value='${context.account.password}';
-						|document.getElementById('signIn').click();
+						|var _nx=document.getElementById('next');
+						|if(_nx!==null) _nx.click();
+						|setTimeout(function(){
+						|  document.getElementById('Passwd').value='${context.account.password}';
+						|  document.getElementById('signIn').click();
+						|}, 3000);
 					""".stripMargin)
-			}.foreach { _ =>
-				// サインイン成功
-				signedIn.set(true)
-				Session.setTimeout(1000){
-					promise.success("SIGNIN")
-				}
-			}
+			}.foreach { _ => succeed() }
 		}
 
 		// Step1: 初期ページ表示
+		logger.info(s"ステップ1: 初期ページ表示")
 		show(s"https://${BombaySapphire.RemoteHost}/intel").foreach { _ => step2() }
 		promise.future
 	} else {
@@ -346,7 +362,9 @@ object Session {
 
 	private[Session] def setTimeout(millis:Long)(f: =>Unit):TimerTask = {
 		val task = new TimerTask {
-			override def run():Unit = f
+			override def run():Unit = try { f } catch {
+				case ex:Throwable => ex.printStackTrace()
+			}
 		}
 		Timer.schedule(task, millis)
 		task
